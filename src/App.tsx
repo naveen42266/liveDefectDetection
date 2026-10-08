@@ -1,13 +1,6 @@
 import './App.css'
 import { Routes, Route, BrowserRouter } from 'react-router-dom';
-
-
-const Home = () => {
-  return (
-    <div className='text-secondary'>Home</div>
-  )
-}
-
+import Home from './pages';
 
 
 function App() {
