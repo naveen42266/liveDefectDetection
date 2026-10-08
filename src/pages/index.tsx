@@ -439,18 +439,21 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         }}>
             {/* ══ TOP BAR ══ */}
             <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', zIndex: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 16px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
+                }}>
                     <button
                         onClick={handleCancel}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '8px 14px', borderRadius: 12,
+                            padding: '6px 12px', borderRadius: 10,
                             background: '#f1f5f9', border: '1px solid #e2e8f0',
                             color: '#1e293b', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                             transition: 'all 0.15s ease',
                         }}
                     >
-                        <span>✕</span> Cancel
+                        <span>✕</span> Back
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -460,13 +463,13 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             boxShadow: '0 0 8px rgba(239,68,68,0.9)',
                             animation: 'blink 1s ease-in-out infinite',
                         }} />
-                        <span style={{ color: '#0f172a', fontSize: 13, fontWeight: 700, letterSpacing: '0.04em' }}>
+                        <span style={{ color: '#0f172a', fontSize: 13, fontWeight: 700, letterSpacing: '0.02em' }}>
                             Live Detection Active
                         </span>
                     </div>
 
                     <div style={{
-                        padding: '6px 14px', borderRadius: 20,
+                        padding: '5px 12px', borderRadius: 20,
                         background: '#ecfdf5', border: '1px solid #a7f3d0',
                     }}>
                         <span style={{ color: '#047857', fontSize: 11, fontWeight: 700, fontFamily: 'monospace' }}>
@@ -484,18 +487,18 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                 {/* Floating Live Status Pill */}
                 {isCameraReady && (
                     <div style={{
-                        position: 'absolute', top: 16, left: 16, zIndex: 25,
-                        display: 'flex', alignItems: 'center', gap: 8,
+                        position: 'absolute', top: 14, left: 14, zIndex: 25,
+                        display: 'flex', alignItems: 'center', gap: 7,
                         background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(8px)',
                         padding: '6px 12px', borderRadius: 20, border: '1px solid #e2e8f0',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                     }}>
                         <div style={{
-                            width: 8, height: 8, borderRadius: '50%', background: '#ef4444',
+                            width: 7, height: 7, borderRadius: '50%', background: '#ef4444',
                             boxShadow: '0 0 6px #ef4444', animation: 'blink 1s ease-in-out infinite',
                         }} />
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
-                            RECORDING 15 FPS • {liveFrameCount} FRAMES
+                            15 FPS • {liveFrameCount} FRAMES
                         </span>
                     </div>
                 )}
@@ -506,11 +509,11 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                         type="button"
                         title={isFlashOn ? "Turn Flash OFF" : "Turn Flash ON"}
                         style={{
-                            position: 'absolute', top: 16, right: 16, zIndex: 25,
-                            display: 'flex', alignItems: 'center', gap: 8,
+                            position: 'absolute', top: 14, right: 14, zIndex: 25,
+                            display: 'flex', alignItems: 'center', gap: 6,
                             background: isFlashOn ? 'rgba(254, 240, 138, 0.95)' : 'rgba(255, 255, 255, 0.9)',
                             backdropFilter: 'blur(8px)',
-                            padding: '8px 14px', borderRadius: 20,
+                            padding: '6px 12px', borderRadius: 20,
                             border: isFlashOn ? '1px solid #eab308' : '1px solid rgba(0,0,0,0.1)',
                             color: isFlashOn ? '#854d0e' : '#1e293b',
                             cursor: 'pointer',
@@ -518,10 +521,10 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             transition: 'all 0.2s ease',
                         }}
                     >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill={isFlashOn ? '#eab308' : 'none'} stroke={isFlashOn ? '#eab308' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFlashOn ? '#eab308' : 'none'} stroke={isFlashOn ? '#eab308' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                         </svg>
-                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
                             {isFlashOn ? 'FLASH ON' : 'FLASH OFF'}
                         </span>
                     </button>
@@ -549,57 +552,57 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             {/* ══ BOTTOM CONTROLS ("END DETECTION" BUTTON) ══ */}
             <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: 12, padding: '16px 20px 20px',
-                paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+                gap: 10, padding: '14px 16px',
+                paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))',
                 background: '#ffffff', borderTop: '1px solid #e2e8f0',
                 boxShadow: '0 -2px 10px rgba(0,0,0,0.02)',
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 480 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 440 }}>
                     {/* Live Metrics */}
                     <div style={{
-                        display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 12px',
+                        display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 10px',
                         borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0',
-                        minWidth: 100,
+                        minWidth: 80,
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
                             <span style={{ color: '#0f172a', fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
                                 {cameraMetrics.width && cameraMetrics.height ? `${cameraMetrics.width}×${cameraMetrics.height}` : 'LIVE'}
                             </span>
                         </div>
                         <div style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>
-                            15 FPS Live
+                            15 FPS
                         </div>
                     </div>
 
                     {/* ══ "END DETECTION" BUTTON ══ */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                         <button
                             onClick={handleEndDetection}
                             disabled={!isCameraReady}
                             title="End Detection & View All Frames"
                             style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                padding: '14px 28px', borderRadius: 16,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                padding: '12px 24px', borderRadius: 14,
                                 background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                                 color: '#ffffff', border: 'none',
                                 cursor: !isCameraReady ? 'not-allowed' : 'pointer',
                                 opacity: !isCameraReady ? 0.6 : 1,
-                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
+                                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
                                 transition: 'all 0.15s ease',
                             }}
                         >
-                            <div style={{ width: 14, height: 14, background: '#ffffff', borderRadius: 3 }} />
-                            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.02em' }}>
+                            <div style={{ width: 12, height: 12, background: '#ffffff', borderRadius: 2 }} />
+                            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.02em' }}>
                                 End Detection
                             </span>
                         </button>
-                        <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}>
-                            {liveFrameCount} frames captured @ 15 FPS
+                        <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>
+                            {liveFrameCount} frames captured
                         </span>
                     </div>
 
-                    <div style={{ minWidth: 100, display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ minWidth: 80, display: 'flex', justifyContent: 'flex-end' }}>
                         <span style={{ color: '#94a3b8', fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', fontWeight: 600 }}>
                             {cameraMetrics.facingMode || 'REAR'}
                         </span>
@@ -617,7 +620,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 export const CameraCaptureIOS: React.FC<CameraCaptureProps> = CameraCaptureAndroid;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ─── MASTER COMPONENT: LANDING SCREEN WITH DETECT BUTTON & CAPTURED FRAMES ────
+// ─── MASTER COMPONENT: RESPONSIVE LANDING SCREEN WITH CAPTURED FRAMES ─────────
 // ═════════════════════════════════════════════════════════════════════════════
 const Home: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<'dashboard' | 'scanner'>('dashboard');
@@ -671,7 +674,7 @@ const Home: React.FC = () => {
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'DM Sans', sans-serif", color: '#0f172a', position: 'relative' }}>
-            {/* ═══ SCREEN 2: LIVE CAMERA SCANNER (AUTO 15 FPS CAPTURE + END DETECTION) ═══ */}
+            {/* ═══ SCREEN 2: LIVE CAMERA SCANNER ═══ */}
             {activeScreen === 'scanner' && (
                 <CameraCaptureAndroid
                     onClose={() => setActiveScreen('dashboard')}
@@ -681,20 +684,12 @@ const Home: React.FC = () => {
 
             {/* ═══ SCREEN 1: LANDING SCREEN ═══ */}
             {activeScreen === 'dashboard' && (
-                <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px 60px' }}>
+                <div className="landing-container">
                     {/* Header bar */}
-                    <header style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        flexWrap: 'wrap', gap: 16, paddingBottom: 20, borderBottom: '1px solid #e2e8f0', marginBottom: 28,
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{
-                                width: 44, height: 44, borderRadius: 12,
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: 'white', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                            }}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <header className="responsive-header">
+                        <div className="header-brand-row">
+                            <div className="brand-icon-box">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="12" cy="12" r="10" />
                                     <line x1="22" y1="12" x2="18" y2="12" />
                                     <line x1="6" y1="12" x2="2" y2="12" />
@@ -702,151 +697,95 @@ const Home: React.FC = () => {
                                     <line x1="12" y1="22" x2="12" y2="18" />
                                 </svg>
                             </div>
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                                        Live Defect Detection Model
-                                    </h1>
-                                    <span style={{
-                                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 12,
-                                        background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0',
-                                    }}>
-                                        AI READY
-                                    </span>
+                            <div className="brand-text-box">
+                                <div className="brand-title-line">
+                                    <h1 className="brand-title">Live Defect Detection</h1>
+                                    <span className="ai-ready-badge">AI READY</span>
                                 </div>
-                                <p style={{ fontSize: 13, color: '#64748b', margin: '3px 0 0' }}>
-                                    Continuous 15 FPS live scanning with end detection & frame gallery
+                                <p className="brand-subtitle">
+                                    Continuous 15 FPS live scanning with frame gallery
                                 </p>
                             </div>
                         </div>
 
-                        {/* Top quick metrics */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{
-                                padding: '8px 14px', borderRadius: 10, background: '#ffffff',
-                                border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                            }}>
-                                <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Scan Rate</span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>15 FPS (Continuous)</span>
+                        {/* Top quick metrics chips */}
+                        <div className="header-chips-row">
+                            <div className="status-chip">
+                                <span className="chip-label">Scan Rate</span>
+                                <span className="chip-value">15 FPS Live</span>
                             </div>
                             {capturedFrames.length > 0 && (
-                                <div style={{
-                                    padding: '8px 14px', borderRadius: 10, background: '#ffffff',
-                                    border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                                }}>
-                                    <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Captured</span>
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#047857' }}>{capturedFrames.length} Frames</span>
+                                <div className="status-chip highlight">
+                                    <span className="chip-label">Captured</span>
+                                    <span className="chip-value green">{capturedFrames.length} Frames</span>
                                 </div>
                             )}
                         </div>
                     </header>
 
                     {/* ══ HERO CARD: "CLICK HERE TO DETECT DEFECT" ══ */}
-                    <div style={{
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
-                        border: '1.5px solid #a7f3d0',
-                        borderRadius: 20,
-                        padding: '28px 24px',
-                        marginBottom: 32,
-                        boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.1), 0 8px 10px -6px rgba(16, 185, 129, 0.05)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: 20,
-                    }}>
-                        <div style={{ maxWidth: 560 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    fontSize: 12, fontWeight: 700, color: '#047857',
-                                    background: '#d1fae5', padding: '4px 10px', borderRadius: 20,
-                                }}>
-                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                    <div className="responsive-hero-card">
+                        <div className="hero-content">
+                            <div className="hero-badge-row">
+                                <span className="hero-status-pill">
+                                    <span className="pulse-dot" />
                                     Live Auto-Scanner
                                 </span>
-                                <span style={{ fontSize: 12, color: '#64748b' }}>• Starts recording 15 FPS immediately</span>
+                                <span className="hero-rate-tag">15 FPS Continuous</span>
                             </div>
-                            <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 8px', color: '#0f172a', letterSpacing: '-0.02em' }}>
+                            <h2 className="hero-heading">
                                 Start Live Scanning & Defect Capture
                             </h2>
-                            <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, margin: 0 }}>
-                                Opens the camera screen, automatically records 15 frames per second continuously, and saves all frames when you press <strong>End Detection</strong>.
+                            <p className="hero-desc">
+                                Opens the camera screen, automatically records 15 frames/sec continuously, and saves all frames when you press <strong>End Detection</strong>.
                             </p>
                         </div>
 
                         {/* Primary Button */}
-                        <button
-                            onClick={() => setActiveScreen('scanner')}
-                            style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                                padding: '16px 30px', borderRadius: 14,
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                color: '#ffffff',
-                                fontSize: 16, fontWeight: 700,
-                                border: 'none', cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
-                                transition: 'all 0.2s ease',
-                            }}
-                        >
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                <circle cx="12" cy="13" r="4" />
-                            </svg>
-                            <span>Click here to detect defect</span>
-                        </button>
+                        <div className="hero-btn-container">
+                            <button
+                                onClick={() => setActiveScreen('scanner')}
+                                className="hero-detect-btn"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <span>Click here to detect defect</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* ═══ CAPTURED FRAMES SECTION ON LANDING SCREEN ═══ */}
                     {capturedFrames.length > 0 ? (
-                        <div>
+                        <div className="frames-section">
                             {/* Toolbar */}
-                            <div style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                flexWrap: 'wrap', gap: 12, marginBottom: 18,
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                                        All Captured Frames
-                                    </h3>
-                                    <span style={{
-                                        fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                                        background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0',
-                                    }}>
+                            <div className="frames-toolbar">
+                                <div className="toolbar-title-box">
+                                    <h3 className="toolbar-title">Captured Frames</h3>
+                                    <span className="toolbar-count-badge">
                                         {capturedFrames.length} Frames @ 15 FPS
                                     </span>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div className="toolbar-actions">
                                     <button
                                         onClick={() => {
                                             setPlaybackIndex(0);
                                             setIsAutoPlaying(true);
                                             setIsPlayingSequence(true);
                                         }}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 6,
-                                            padding: '8px 14px', borderRadius: 10,
-                                            background: '#ffffff', border: '1px solid #cbd5e1',
-                                            color: '#0f172a', fontSize: 13, fontWeight: 600,
-                                            cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                        }}
+                                        className="toolbar-btn primary"
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="#10b981" stroke="#10b981" strokeWidth="2">
                                             <polygon points="5 3 19 12 5 21 5 3" />
                                         </svg>
-                                        <span>Play 15 FPS Sequence</span>
+                                        <span>Play 15 FPS</span>
                                     </button>
 
                                     <button
                                         onClick={downloadAllFrames}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 6,
-                                            padding: '8px 14px', borderRadius: 10,
-                                            background: '#ffffff', border: '1px solid #cbd5e1',
-                                            color: '#0f172a', fontSize: 13, fontWeight: 600,
-                                            cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                        }}
+                                        className="toolbar-btn secondary"
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -858,12 +797,7 @@ const Home: React.FC = () => {
 
                                     <button
                                         onClick={() => setCapturedFrames([])}
-                                        style={{
-                                            padding: '8px 12px', borderRadius: 10,
-                                            background: '#fef2f2', border: '1px solid #fecaca',
-                                            color: '#dc2626', fontSize: 13, fontWeight: 600,
-                                            cursor: 'pointer',
-                                        }}
+                                        className="toolbar-btn danger"
                                     >
                                         Clear
                                     </button>
@@ -871,66 +805,35 @@ const Home: React.FC = () => {
                             </div>
 
                             {/* Responsive Frames Grid */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-                                gap: 16,
-                            }}>
+                            <div className="responsive-frames-grid">
                                 {capturedFrames.map((frame) => (
                                     <div
                                         key={frame.id}
                                         onClick={() => setSelectedFrame(frame)}
-                                        style={{
-                                            background: '#ffffff',
-                                            borderRadius: 14,
-                                            border: '1px solid #e2e8f0',
-                                            overflow: 'hidden',
-                                            boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                                            cursor: 'pointer',
-                                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(-3px)';
-                                            e.currentTarget.style.boxShadow = '0 8px 18px rgba(0,0,0,0.08)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
-                                        }}
+                                        className="frame-card"
                                     >
-                                        <div style={{ position: 'relative', width: '100%', aspectRatio: '9 / 14', background: '#0f172a' }}>
+                                        <div className="frame-thumb-wrapper">
                                             <img
                                                 src={frame.dataUrl}
                                                 alt={`Frame ${frame.frameIndex}`}
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                className="frame-image"
                                             />
                                             {/* Frame badge */}
-                                            <span style={{
-                                                position: 'absolute', top: 8, left: 8,
-                                                background: 'rgba(15, 23, 42, 0.8)', color: '#ffffff',
-                                                padding: '3px 8px', borderRadius: 6,
-                                                fontSize: 11, fontWeight: 700, fontFamily: 'monospace',
-                                                backdropFilter: 'blur(4px)',
-                                            }}>
+                                            <span className="frame-index-badge">
                                                 #{frame.frameIndex}
                                             </span>
 
                                             {/* Timestamp badge */}
-                                            <span style={{
-                                                position: 'absolute', bottom: 8, right: 8,
-                                                background: 'rgba(16, 185, 129, 0.9)', color: '#ffffff',
-                                                padding: '2px 6px', borderRadius: 4,
-                                                fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
-                                            }}>
+                                            <span className="frame-time-badge">
                                                 {frame.timeString}
                                             </span>
                                         </div>
 
-                                        <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
+                                        <div className="frame-info-bar">
+                                            <span className="frame-info-num">
                                                 Frame #{frame.frameIndex}
                                             </span>
-                                            <span style={{ fontSize: 11, color: '#64748b' }}>
+                                            <span className="frame-info-dim">
                                                 {frame.width}×{frame.height}
                                             </span>
                                         </div>
@@ -940,37 +843,23 @@ const Home: React.FC = () => {
                         </div>
                     ) : (
                         /* Empty State */
-                        <div style={{
-                            textAlign: 'center', padding: '48px 20px',
-                            background: '#ffffff', borderRadius: 16,
-                            border: '1.5px dashed #cbd5e1',
-                        }}>
-                            <div style={{
-                                width: 56, height: 56, borderRadius: '50%',
-                                background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                margin: '0 auto 16px', color: '#64748b',
-                            }}>
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <div className="empty-state-card">
+                            <div className="empty-icon-circle">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                                     <circle cx="8.5" cy="8.5" r="1.5" />
                                     <polyline points="21 15 16 10 5 21" />
                                 </svg>
                             </div>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', color: '#0f172a' }}>
+                            <h3 className="empty-title">
                                 No Frames Captured Yet
                             </h3>
-                            <p style={{ fontSize: 13, color: '#64748b', maxWidth: 400, margin: '0 auto 20px' }}>
+                            <p className="empty-desc">
                                 Click <strong>"Click here to detect defect"</strong> above. The camera will automatically start capturing at 15 FPS, and pressing <strong>End Detection</strong> will display all frames here.
                             </p>
                             <button
                                 onClick={() => setActiveScreen('scanner')}
-                                style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 8,
-                                    padding: '10px 20px', borderRadius: 10,
-                                    background: '#10b981', color: 'white',
-                                    border: 'none', fontSize: 13, fontWeight: 700,
-                                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                }}
+                                className="empty-launch-btn"
                             >
                                 Launch Live Detection
                             </button>
@@ -981,67 +870,42 @@ const Home: React.FC = () => {
                     {selectedFrame && (
                         <div
                             onClick={() => setSelectedFrame(null)}
-                            style={{
-                                position: 'fixed', inset: 0,
-                                background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)',
-                                zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 20,
-                            }}
+                            className="modal-backdrop"
                         >
                             <div
                                 onClick={(e) => e.stopPropagation()}
-                                style={{
-                                    background: '#ffffff', borderRadius: 18,
-                                    maxWidth: 680, width: '100%', maxHeight: '92vh',
-                                    display: 'flex', flexDirection: 'column',
-                                    overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                                }}
+                                className="modal-dialog inspect"
                             >
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '14px 18px', borderBottom: '1px solid #e2e8f0',
-                                }}>
+                                <div className="modal-header">
                                     <div>
-                                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                                        <h4 className="modal-title">
                                             Frame #{selectedFrame.frameIndex} Inspection
                                         </h4>
-                                        <span style={{ fontSize: 11, color: '#64748b' }}>
-                                            Interval: {selectedFrame.timeString} • {selectedFrame.width}×{selectedFrame.height}px
+                                        <span className="modal-subtitle">
+                                            {selectedFrame.timeString} • {selectedFrame.width}×{selectedFrame.height}px
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div className="modal-header-actions">
                                         <button
                                             onClick={() => downloadFrame(selectedFrame)}
-                                            style={{
-                                                padding: '6px 12px', borderRadius: 8,
-                                                background: '#f1f5f9', border: '1px solid #e2e8f0',
-                                                color: '#0f172a', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                            }}
+                                            className="modal-action-btn"
                                         >
                                             Download
                                         </button>
                                         <button
                                             onClick={() => setSelectedFrame(null)}
-                                            style={{
-                                                width: 32, height: 32, borderRadius: 8,
-                                                background: '#f1f5f9', border: '1px solid #e2e8f0',
-                                                color: '#64748b', fontSize: 16, cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}
+                                            className="modal-close-btn"
                                         >
                                             ✕
                                         </button>
                                     </div>
                                 </div>
 
-                                <div style={{
-                                    flex: 1, overflow: 'auto', background: '#0f172a',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
-                                }}>
+                                <div className="modal-image-viewport">
                                     <img
                                         src={selectedFrame.dataUrl}
                                         alt={`Frame ${selectedFrame.frameIndex}`}
-                                        style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8 }}
+                                        className="modal-full-img"
                                     />
                                 </div>
                             </div>
@@ -1052,67 +916,42 @@ const Home: React.FC = () => {
                     {isPlayingSequence && capturedFrames.length > 0 && (
                         <div
                             onClick={() => setIsPlayingSequence(false)}
-                            style={{
-                                position: 'fixed', inset: 0,
-                                background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)',
-                                zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 20,
-                            }}
+                            className="modal-backdrop"
                         >
                             <div
                                 onClick={(e) => e.stopPropagation()}
-                                style={{
-                                    background: '#ffffff', borderRadius: 20,
-                                    maxWidth: 600, width: '100%',
-                                    overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
-                                }}
+                                className="modal-dialog player"
                             >
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '14px 20px', borderBottom: '1px solid #e2e8f0',
-                                }}>
+                                <div className="modal-header">
                                     <div>
-                                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
-                                            Live Sequence Playback (15 FPS)
+                                        <h4 className="modal-title">
+                                            Sequence Playback (15 FPS)
                                         </h4>
-                                        <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
+                                        <span className="modal-subtitle highlight">
                                             Frame {playbackIndex + 1} of {capturedFrames.length} ({capturedFrames[playbackIndex]?.timeString})
                                         </span>
                                     </div>
                                     <button
                                         onClick={() => setIsPlayingSequence(false)}
-                                        style={{
-                                            width: 32, height: 32, borderRadius: 8,
-                                            background: '#f1f5f9', border: '1px solid #e2e8f0',
-                                            color: '#64748b', fontSize: 16, cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}
+                                        className="modal-close-btn"
                                     >
                                         ✕
                                     </button>
                                 </div>
 
-                                <div style={{
-                                    background: '#0f172a', width: '100%', aspectRatio: '9 / 14', maxHeight: '55vh',
-                                    position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
+                                <div className="modal-player-viewport">
                                     <img
                                         src={capturedFrames[playbackIndex]?.dataUrl}
                                         alt={`Frame ${playbackIndex + 1}`}
-                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        className="player-active-img"
                                     />
-                                    <div style={{
-                                        position: 'absolute', bottom: 12, left: 12,
-                                        background: 'rgba(0,0,0,0.7)', color: 'white',
-                                        padding: '4px 10px', borderRadius: 6, fontSize: 12, fontFamily: 'monospace',
-                                    }}>
+                                    <div className="player-floating-tag">
                                         FRAME #{playbackIndex + 1} • {capturedFrames[playbackIndex]?.timeString}
                                     </div>
                                 </div>
 
                                 {/* Playback Controls */}
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {/* Scrubber slider */}
+                                <div className="player-controls-box">
                                     <input
                                         type="range"
                                         min="0"
@@ -1122,32 +961,23 @@ const Home: React.FC = () => {
                                             setIsAutoPlaying(false);
                                             setPlaybackIndex(Number(e.target.value));
                                         }}
-                                        style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }}
+                                        className="player-timeline-slider"
                                     />
 
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                                    <div className="player-buttons-row">
                                         <button
                                             onClick={() => {
                                                 setIsAutoPlaying(false);
                                                 setPlaybackIndex(prev => (prev - 1 + capturedFrames.length) % capturedFrames.length);
                                             }}
-                                            style={{
-                                                padding: '6px 14px', borderRadius: 8, background: '#f1f5f9',
-                                                border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 600, cursor: 'pointer',
-                                            }}
+                                            className="player-btn prev"
                                         >
                                             ◀ Prev
                                         </button>
 
                                         <button
                                             onClick={() => setIsAutoPlaying(prev => !prev)}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 6,
-                                                padding: '8px 20px', borderRadius: 10,
-                                                background: '#10b981', color: '#ffffff',
-                                                border: 'none', fontWeight: 700, cursor: 'pointer',
-                                                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                            }}
+                                            className="player-btn play"
                                         >
                                             {isAutoPlaying ? '❚❚ Pause' : '▶ Play'}
                                         </button>
@@ -1157,10 +987,7 @@ const Home: React.FC = () => {
                                                 setIsAutoPlaying(false);
                                                 setPlaybackIndex(prev => (prev + 1) % capturedFrames.length);
                                             }}
-                                            style={{
-                                                padding: '6px 14px', borderRadius: 8, background: '#f1f5f9',
-                                                border: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 600, cursor: 'pointer',
-                                            }}
+                                            className="player-btn next"
                                         >
                                             Next ▶
                                         </button>
@@ -1171,6 +998,673 @@ const Home: React.FC = () => {
                     )}
                 </div>
             )}
+
+            {/* ═══ RESPONSIVE CSS STYLES FOR ALL SCREEN SIZES ═══ */}
+            <style>{`
+        /* Mobile-First Layout Styles */
+        .landing-container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px 14px 60px;
+            box-sizing: border-box;
+        }
+
+        /* Responsive Header */
+        .responsive-header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+
+        .header-brand-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .brand-icon-box {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.28);
+        }
+
+        .brand-text-box {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .brand-title-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ai-ready-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            letter-spacing: 0.04em;
+        }
+
+        .brand-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin: 2px 0 0;
+            line-height: 1.3;
+        }
+
+        .header-chips-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .status-chip {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chip-label {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .chip-value {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .chip-value.green {
+            color: #047857;
+        }
+
+        /* Responsive Hero Card */
+        .responsive-hero-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border: 1.5px solid #a7f3d0;
+            border-radius: 16px;
+            padding: 18px 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-sizing: border-box;
+        }
+
+        .hero-badge-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .hero-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #047857;
+            background: #d1fae5;
+            padding: 3px 9px;
+            border-radius: 16px;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            display: inline-block;
+        }
+
+        .hero-rate-tag {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .hero-heading {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 6px;
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+        }
+
+        .hero-desc {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.45;
+            margin: 0;
+        }
+
+        .hero-btn-container {
+            width: 100%;
+        }
+
+        .hero-detect-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 20px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .hero-detect-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Responsive Frames Grid */
+        .frames-section {
+            width: 100%;
+        }
+
+        .frames-toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .toolbar-title-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .toolbar-count-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 16px;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toolbar-btn.primary {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            flex: 1;
+            justify-content: center;
+        }
+
+        .toolbar-btn.secondary {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .toolbar-btn.danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+
+        /* 2 Columns on Mobile, scalable on desktop */
+        .responsive-frames-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .frame-card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .frame-thumb-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 9 / 13;
+            background: #0f172a;
+        }
+
+        .frame-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .frame-index-badge {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: rgba(15, 23, 42, 0.85);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: monospace;
+            backdrop-filter: blur(4px);
+        }
+
+        .frame-time-badge {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            background: rgba(16, 185, 129, 0.92);
+            color: #ffffff;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            font-family: monospace;
+        }
+
+        .frame-info-bar {
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .frame-info-num {
+            font-size: 11px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .frame-info-dim {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        /* Empty State */
+        .empty-state-card {
+            text-align: center;
+            padding: 32px 16px;
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1.5px dashed #cbd5e1;
+        }
+
+        .empty-icon-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            color: #64748b;
+        }
+
+        .empty-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 4px;
+        }
+
+        .empty-desc {
+            font-size: 12px;
+            color: #64748b;
+            max-width: 380px;
+            margin: 0 auto 16px;
+            line-height: 1.4;
+        }
+
+        .empty-launch-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            background: #10b981;
+            color: white;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Modals */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(6px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        .modal-dialog {
+            background: #ffffff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 580px;
+            max-height: 90dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .modal-subtitle {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .modal-subtitle.highlight {
+            color: #047857;
+            font-weight: 600;
+        }
+
+        .modal-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-action-btn {
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal-close-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-image-viewport {
+            flex: 1;
+            overflow: auto;
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
+
+        .modal-full-img {
+            max-width: 100%;
+            max-height: 65vh;
+            object-fit: contain;
+            border-radius: 6px;
+        }
+
+        .modal-player-viewport {
+            background: #0f172a;
+            width: 100%;
+            aspect-ratio: 9 / 13;
+            max-height: 50vh;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player-active-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .player-floating-tag {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.75);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        .player-controls-box {
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .player-timeline-slider {
+            width: 100%;
+            accent-color: #10b981;
+            cursor: pointer;
+        }
+
+        .player-buttons-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .player-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .player-btn.prev, .player-btn.next {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+
+        .player-btn.play {
+            background: #10b981;
+            color: #ffffff;
+            border: none;
+            padding: 7px 18px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        /* ═══ TABLET & DESKTOP BREAKPOINTS ═══ */
+        @media (min-width: 641px) {
+            .landing-container {
+                padding: 24px 20px 60px;
+            }
+
+            .responsive-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                padding-bottom: 20px;
+                margin-bottom: 28px;
+            }
+
+            .brand-icon-box {
+                width: 44px;
+                height: 44px;
+                min-width: 44px;
+                border-radius: 12px;
+            }
+
+            .brand-title {
+                font-size: 22px;
+            }
+
+            .brand-subtitle {
+                font-size: 13px;
+            }
+
+            .responsive-hero-card {
+                padding: 28px 24px;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: 20px;
+            }
+
+            .hero-content {
+                max-width: 540px;
+            }
+
+            .hero-heading {
+                font-size: 22px;
+            }
+
+            .hero-btn-container {
+                width: auto;
+                min-width: 240px;
+            }
+
+            .hero-detect-btn {
+                width: auto;
+                padding: 16px 28px;
+                font-size: 16px;
+            }
+
+            .frames-toolbar {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 18px;
+            }
+
+            .toolbar-actions {
+                width: auto;
+            }
+
+            .responsive-frames-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 14px;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .responsive-frames-grid {
+                grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+                gap: 16px;
+            }
+        }
+      `}</style>
         </div>
     );
 };
