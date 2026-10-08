@@ -14,7 +14,7 @@ export interface CapturedFrame {
     id: string;
     dataUrl: string;
     frameIndex: number;
-    timestamp: number; // ms from start
+    timestamp: number; // ms from scan start
     timeString: string;
     width: number;
     height: number;
@@ -37,8 +37,6 @@ interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
 interface CameraCaptureProps {
     onCaptureFrames: (frames: CapturedFrame[]) => void;
     onClose: () => void;
-    targetFps?: number;
-    frameCount?: number;
 }
 
 // Format aspect ratio helper for display (e.g. "9:16", "3:4", etc.)
@@ -196,12 +194,10 @@ async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
     return stream;
 }
 
-// ─── LIVE CAMERA SCANNER & 10-15 FPS FRAME CAPTURE COMPONENT ─────────────────
+// ─── LIVE CAMERA SCANNER & CONTINUOUS 15 FPS DETECTION COMPONENT ─────────────
 const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
     onClose,
     onCaptureFrames,
-    targetFps = 15,
-    frameCount = 15,
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -209,10 +205,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
 
     const [isCameraReady, setIsCameraReady] = useState(false);
-    const [isCapturing, setIsCapturing] = useState(false);
-    const [capturedCount, setCapturedCount] = useState(0);
-    const [currentFps, setCurrentFps] = useState<number>(targetFps);
-    const [totalFrames, setTotalFrames] = useState<number>(frameCount);
+    const [liveFrameCount, setLiveFrameCount] = useState(0);
     const [flashSupported, setFlashSupported] = useState(false);
     const [isFlashOn, setIsFlashOn] = useState(false);
     const [cameraMetrics, setCameraMetrics] = useState<CameraMetrics>({});
@@ -284,6 +277,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         };
     }, []);
 
+    // Initialize Camera Stream
     useEffect(() => {
         let cancelled = false;
 
@@ -337,7 +331,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         };
     }, [extractCameraDiagnostics]);
 
-    // Capture individual frame from video element to JPEG dataURL
+    // Helper: sample frame from video element
     const grabFrame = (video: HTMLVideoElement): { dataUrl: string; width: number; height: number } => {
         const width = video.videoWidth || 1080;
         const height = video.videoHeight || 1920;
@@ -348,7 +342,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         if (ctx) {
             ctx.drawImage(video, 0, 0, width, height);
             return {
-                dataUrl: canvas.toDataURL('image/jpeg', 0.88),
+                dataUrl: canvas.toDataURL('image/jpeg', 0.82),
                 width,
                 height,
             };
@@ -356,25 +350,17 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         return { dataUrl: '', width, height };
     };
 
-    // Trigger high-speed 10-15 FPS frame capture sequence
-    const triggerFrameCapture = () => {
-        if (!videoRef.current || !isCameraReady || isCapturing) return;
+    // ─── AUTO-START 15 FPS CONTINUOUS CAPTURE ON SCREEN OPEN ──────────────
+    useEffect(() => {
+        if (!isCameraReady || !videoRef.current) return;
 
-        setIsCapturing(true);
-        setCapturedCount(0);
         framesCollectorRef.current = [];
-
-        if ('vibrate' in navigator) {
-            try { navigator.vibrate(60); } catch { }
-        }
-
-        const intervalMs = Math.round(1000 / currentFps); // ~66ms for 15 FPS, 100ms for 10 FPS
         const startTime = performance.now();
-        let frameIndex = 0;
+        let frameNum = 0;
 
-        // Grab first frame immediately
+        // Sample initial first frame immediately
         const first = grabFrame(videoRef.current);
-        frameIndex = 1;
+        frameNum = 1;
         framesCollectorRef.current.push({
             id: `frame_${Date.now()}_1`,
             dataUrl: first.dataUrl,
@@ -384,50 +370,65 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             width: first.width,
             height: first.height,
         });
-        setCapturedCount(1);
+        setLiveFrameCount(1);
 
-        captureTimerRef.current = window.setInterval(() => {
-            if (!videoRef.current) {
-                if (captureTimerRef.current) clearInterval(captureTimerRef.current);
-                return;
-            }
+        // Capture continuous frames at 15 FPS (~66.6ms intervals)
+        const intervalMs = Math.round(1000 / 15);
+        const timer = window.setInterval(() => {
+            if (!videoRef.current) return;
 
-            frameIndex++;
+            frameNum++;
             const now = performance.now();
             const elapsed = Math.round(now - startTime);
             const captured = grabFrame(videoRef.current);
 
             framesCollectorRef.current.push({
-                id: `frame_${Date.now()}_${frameIndex}`,
+                id: `frame_${Date.now()}_${frameNum}`,
                 dataUrl: captured.dataUrl,
-                frameIndex,
+                frameIndex: frameNum,
                 timestamp: elapsed,
                 timeString: `+${elapsed}ms`,
                 width: captured.width,
                 height: captured.height,
             });
 
-            setCapturedCount(frameIndex);
-
-            if (frameIndex >= totalFrames) {
-                if (captureTimerRef.current) {
-                    clearInterval(captureTimerRef.current);
-                    captureTimerRef.current = null;
-                }
-
-                if ('vibrate' in navigator) {
-                    try { navigator.vibrate([40, 60, 40]); } catch { }
-                }
-
-                setIsCapturing(false);
-
-                // Seamlessly return back to first screen with all captured frames
-                onCaptureFrames([...framesCollectorRef.current]);
-            }
+            setLiveFrameCount(frameNum);
         }, intervalMs);
+
+        captureTimerRef.current = timer;
+
+        return () => {
+            clearInterval(timer);
+            captureTimerRef.current = null;
+        };
+    }, [isCameraReady]);
+
+    // ─── END DETECTION: FINISH CAPTURE & RETURN ALL FRAMES TO LANDING SCREEN ─
+    const handleEndDetection = () => {
+        if (captureTimerRef.current) {
+            clearInterval(captureTimerRef.current);
+            captureTimerRef.current = null;
+        }
+
+        if ('vibrate' in navigator) {
+            try { navigator.vibrate([40, 50, 40]); } catch { }
+        }
+
+        // Return all captured 15 FPS frames to the landing screen
+        onCaptureFrames([...framesCollectorRef.current]);
     };
 
-    const captureProgress = Math.min(Math.round((capturedCount / totalFrames) * 100), 100);
+    const handleCancel = () => {
+        if (captureTimerRef.current) {
+            clearInterval(captureTimerRef.current);
+            captureTimerRef.current = null;
+        }
+        if (framesCollectorRef.current.length > 0) {
+            onCaptureFrames([...framesCollectorRef.current]);
+        } else {
+            onClose();
+        }
+    };
 
     return (
         <div style={{
@@ -436,52 +437,69 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start',
             overflow: 'hidden', height: viewportHeight ? `${viewportHeight}px` : '100dvh', width: '100vw',
         }}>
-            {/* ══ TOP BAR (LIGHT THEME) ══ */}
+            {/* ══ TOP BAR ══ */}
             <div style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', zIndex: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
                     <button
-                        onClick={onClose}
-                        disabled={isCapturing}
+                        onClick={handleCancel}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 6,
                             padding: '8px 14px', borderRadius: 12,
                             background: '#f1f5f9', border: '1px solid #e2e8f0',
-                            color: isCapturing ? '#94a3b8' : '#1e293b',
-                            fontSize: 13, fontWeight: 600, cursor: isCapturing ? 'not-allowed' : 'pointer',
+                            color: '#1e293b', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                             transition: 'all 0.15s ease',
                         }}
                     >
-                        <span>←</span> Back
+                        <span>✕</span> Cancel
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
                             width: 8, height: 8, borderRadius: '50%',
-                            background: isCapturing ? '#ef4444' : '#10b981',
-                            boxShadow: isCapturing ? '0 0 8px rgba(239,68,68,0.8)' : '0 0 8px rgba(16,185,129,0.8)',
-                            animation: isCapturing ? 'pulse 0.4s ease infinite alternate' : 'blink 1.5s ease-in-out infinite',
+                            background: '#ef4444',
+                            boxShadow: '0 0 8px rgba(239,68,68,0.9)',
+                            animation: 'blink 1s ease-in-out infinite',
                         }} />
-                        <span style={{ color: '#0f172a', fontSize: 13, fontWeight: 700, letterSpacing: '0.05em' }}>
-                            {isCapturing ? 'CAPTURING FRAMES' : 'Live Detection'}
+                        <span style={{ color: '#0f172a', fontSize: 13, fontWeight: 700, letterSpacing: '0.04em' }}>
+                            Live Detection Active
                         </span>
                     </div>
 
                     <div style={{
-                        padding: '6px 12px', borderRadius: 20,
-                        background: '#f1f5f9', border: '1px solid #e2e8f0',
+                        padding: '6px 14px', borderRadius: 20,
+                        background: '#ecfdf5', border: '1px solid #a7f3d0',
                     }}>
                         <span style={{ color: '#047857', fontSize: 11, fontWeight: 700, fontFamily: 'monospace' }}>
-                            {currentFps} FPS
+                            15 FPS
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* ══ PORTRAIT VIEWFINDER (CLEAN VIDEO, NO OVERLAY LINES/INSTRUCTIONS) ══ */}
+            {/* ══ PORTRAIT VIEWFINDER (CLEAN VIDEO FEED) ══ */}
             <div ref={containerRef} style={{
                 position: 'relative', width: '100%', flex: 1,
                 overflow: 'hidden', background: '#f1f5f9',
             }}>
+                {/* Floating Live Status Pill */}
+                {isCameraReady && (
+                    <div style={{
+                        position: 'absolute', top: 16, left: 16, zIndex: 25,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(8px)',
+                        padding: '6px 12px', borderRadius: 20, border: '1px solid #e2e8f0',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    }}>
+                        <div style={{
+                            width: 8, height: 8, borderRadius: '50%', background: '#ef4444',
+                            boxShadow: '0 0 6px #ef4444', animation: 'blink 1s ease-in-out infinite',
+                        }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                            RECORDING 15 FPS • {liveFrameCount} FRAMES
+                        </span>
+                    </div>
+                )}
+
                 {flashSupported && isCameraReady && (
                     <button
                         onClick={toggleFlash}
@@ -526,19 +544,9 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                         }}
                     />
                 </div>
-
-                {/* Shutter flash animation while capturing */}
-                {isCapturing && (
-                    <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'rgba(255, 255, 255, 0.3)',
-                        pointerEvents: 'none',
-                        animation: 'shutterFlash 0.15s ease-out infinite alternate',
-                    }} />
-                )}
             </div>
 
-            {/* ══ BOTTOM CONTROLS (CAPTURE FRAME TRIGGER & SETTINGS) ══ */}
+            {/* ══ BOTTOM CONTROLS ("END DETECTION" BUTTON) ══ */}
             <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 gap: 12, padding: '16px 20px 20px',
@@ -546,84 +554,8 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                 background: '#ffffff', borderTop: '1px solid #e2e8f0',
                 boxShadow: '0 -2px 10px rgba(0,0,0,0.02)',
             }}>
-                {/* Real-time Capture Progress Bar */}
-                {isCapturing && (
-                    <div style={{ width: '100%', maxWidth: 280, textAlign: 'center' }}>
-                        <div style={{ width: '100%', height: 6, borderRadius: 3, background: '#e2e8f0', overflow: 'hidden', marginBottom: 6 }}>
-                            <div style={{
-                                height: '100%', borderRadius: 3,
-                                background: 'linear-gradient(90deg, #10b981, #059669)',
-                                width: `${captureProgress}%`,
-                                transition: 'width 0.08s linear',
-                            }} />
-                        </div>
-                        <span style={{ color: '#0f172a', fontSize: 12, fontWeight: 700 }}>
-                            Capturing Frame {capturedCount} of {totalFrames} ({currentFps} FPS)...
-                        </span>
-                    </div>
-                )}
-
-                {/* Rate & Frame Count Selectors */}
-                {!isCapturing && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 2 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: 3, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                            <button
-                                onClick={() => setCurrentFps(10)}
-                                style={{
-                                    padding: '4px 10px', borderRadius: 8, border: 'none',
-                                    background: currentFps === 10 ? '#ffffff' : 'transparent',
-                                    color: currentFps === 10 ? '#0f172a' : '#64748b',
-                                    fontWeight: currentFps === 10 ? 700 : 500, fontSize: 11, cursor: 'pointer',
-                                    boxShadow: currentFps === 10 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                }}
-                            >
-                                10 FPS
-                            </button>
-                            <button
-                                onClick={() => setCurrentFps(15)}
-                                style={{
-                                    padding: '4px 10px', borderRadius: 8, border: 'none',
-                                    background: currentFps === 15 ? '#ffffff' : 'transparent',
-                                    color: currentFps === 15 ? '#0f172a' : '#64748b',
-                                    fontWeight: currentFps === 15 ? 700 : 500, fontSize: 11, cursor: 'pointer',
-                                    boxShadow: currentFps === 15 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                }}
-                            >
-                                15 FPS
-                            </button>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: 3, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                            <button
-                                onClick={() => setTotalFrames(10)}
-                                style={{
-                                    padding: '4px 10px', borderRadius: 8, border: 'none',
-                                    background: totalFrames === 10 ? '#ffffff' : 'transparent',
-                                    color: totalFrames === 10 ? '#0f172a' : '#64748b',
-                                    fontWeight: totalFrames === 10 ? 700 : 500, fontSize: 11, cursor: 'pointer',
-                                    boxShadow: totalFrames === 10 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                }}
-                            >
-                                10 Frames
-                            </button>
-                            <button
-                                onClick={() => setTotalFrames(15)}
-                                style={{
-                                    padding: '4px 10px', borderRadius: 8, border: 'none',
-                                    background: totalFrames === 15 ? '#ffffff' : 'transparent',
-                                    color: totalFrames === 15 ? '#0f172a' : '#64748b',
-                                    fontWeight: totalFrames === 15 ? 700 : 500, fontSize: 11, cursor: 'pointer',
-                                    boxShadow: totalFrames === 15 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                                }}
-                            >
-                                15 Frames
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 480 }}>
-                    {/* Resolution & FPS metrics */}
+                    {/* Live Metrics */}
                     <div style={{
                         display: 'flex', flexDirection: 'column', gap: 2, padding: '6px 12px',
                         borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0',
@@ -636,52 +568,34 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             </span>
                         </div>
                         <div style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>
-                            {cameraMetrics.frameRate ? `${cameraMetrics.frameRate} FPS` : 'Adaptive'}
+                            15 FPS Live
                         </div>
                     </div>
 
-                    {/* Prominent "CAPTURE FRAME" Button */}
+                    {/* ══ "END DETECTION" BUTTON ══ */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                         <button
-                            onClick={triggerFrameCapture}
-                            disabled={!isCameraReady || isCapturing}
-                            title="Capture Frame"
+                            onClick={handleEndDetection}
+                            disabled={!isCameraReady}
+                            title="End Detection & View All Frames"
                             style={{
-                                position: 'relative', background: 'none', border: 'none', padding: 0,
-                                cursor: (!isCameraReady || isCapturing) ? 'not-allowed' : 'pointer',
-                                opacity: (!isCameraReady || isCapturing) ? 0.6 : 1,
-                                transform: isCapturing ? 'scale(0.96)' : 'scale(1)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                padding: '14px 28px', borderRadius: 16,
+                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                color: '#ffffff', border: 'none',
+                                cursor: !isCameraReady ? 'not-allowed' : 'pointer',
+                                opacity: !isCameraReady ? 0.6 : 1,
+                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
                                 transition: 'all 0.15s ease',
                             }}
                         >
-                            <div style={{
-                                width: 72, height: 72, borderRadius: '50%',
-                                border: '3px solid #10b981',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: isCapturing ? '#fef2f2' : '#f0fdf4',
-                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)',
-                            }}>
-                                <div style={{
-                                    width: 52, height: 52, borderRadius: '50%',
-                                    background: isCapturing
-                                        ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                                        : 'linear-gradient(135deg, #10b981, #059669)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    color: 'white',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                }}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                        <circle cx="12" cy="13" r="4" />
-                                    </svg>
-                                </div>
-                            </div>
+                            <div style={{ width: 14, height: 14, background: '#ffffff', borderRadius: 3 }} />
+                            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.02em' }}>
+                                End Detection
+                            </span>
                         </button>
-                        <span style={{ color: isCapturing ? '#dc2626' : '#0f172a', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>
-                            {isCapturing ? `CAPTURING (${capturedCount}/${totalFrames})` : 'CAPTURE FRAME'}
-                        </span>
-                        <span style={{ color: '#64748b', fontSize: 10, marginTop: -3 }}>
-                            {currentFps} FPS Burst ({totalFrames} Frames)
+                        <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}>
+                            {liveFrameCount} frames captured @ 15 FPS
                         </span>
                     </div>
 
@@ -695,8 +609,6 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 
             <style>{`
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-        @keyframes pulse { from{transform:scale(0.85);opacity:0.7} to{transform:scale(1.2);opacity:1} }
-        @keyframes shutterFlash { from{opacity:0.1} to{opacity:0.45} }
       `}</style>
         </div>
     );
@@ -705,13 +617,11 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 export const CameraCaptureIOS: React.FC<CameraCaptureProps> = CameraCaptureAndroid;
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ─── MASTER COMPONENT: LIVE DEFECT DETECTION MODEL & DASHBOARD ───────────────
+// ─── MASTER COMPONENT: LANDING SCREEN WITH DETECT BUTTON & CAPTURED FRAMES ────
 // ═════════════════════════════════════════════════════════════════════════════
 const Home: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<'dashboard' | 'scanner'>('dashboard');
     const [capturedFrames, setCapturedFrames] = useState<CapturedFrame[]>([]);
-    const [targetFps, setTargetFps] = useState<number>(15);
-    const [frameCount, setFrameCount] = useState<number>(15);
 
     // Modal viewers
     const [selectedFrame, setSelectedFrame] = useState<CapturedFrame | null>(null);
@@ -719,11 +629,11 @@ const Home: React.FC = () => {
     const [playbackIndex, setPlaybackIndex] = useState(0);
     const [isAutoPlaying, setIsAutoPlaying] = useState(false);
 
-    // Flipbook player timer
+    // Flipbook player timer for 15 FPS playback
     useEffect(() => {
         let timer: number | null = null;
         if (isPlayingSequence && isAutoPlaying && capturedFrames.length > 0) {
-            const frameDelay = Math.round(1000 / targetFps);
+            const frameDelay = Math.round(1000 / 15);
             timer = window.setInterval(() => {
                 setPlaybackIndex(prev => (prev + 1) % capturedFrames.length);
             }, frameDelay);
@@ -731,9 +641,9 @@ const Home: React.FC = () => {
         return () => {
             if (timer) clearInterval(timer);
         };
-    }, [isPlayingSequence, isAutoPlaying, capturedFrames.length, targetFps]);
+    }, [isPlayingSequence, isAutoPlaying, capturedFrames.length]);
 
-    // Handle incoming frames from scanner
+    // Handle incoming frames from scanner after End Detection
     const handleCapturedFrames = (frames: CapturedFrame[]) => {
         setCapturedFrames(frames);
         setActiveScreen('dashboard');
@@ -755,23 +665,21 @@ const Home: React.FC = () => {
         capturedFrames.forEach((frame, idx) => {
             setTimeout(() => {
                 downloadFrame(frame);
-            }, idx * 120);
+            }, idx * 100);
         });
     };
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'DM Sans', sans-serif", color: '#0f172a', position: 'relative' }}>
-            {/* ═══ SCREEN 2: LIVE CAMERA SCANNER ═══ */}
+            {/* ═══ SCREEN 2: LIVE CAMERA SCANNER (AUTO 15 FPS CAPTURE + END DETECTION) ═══ */}
             {activeScreen === 'scanner' && (
                 <CameraCaptureAndroid
                     onClose={() => setActiveScreen('dashboard')}
                     onCaptureFrames={handleCapturedFrames}
-                    targetFps={targetFps}
-                    frameCount={frameCount}
                 />
             )}
 
-            {/* ═══ SCREEN 1: LIVE DEFECT DETECTION MODEL DASHBOARD ═══ */}
+            {/* ═══ SCREEN 1: LANDING SCREEN ═══ */}
             {activeScreen === 'dashboard' && (
                 <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px 60px' }}>
                     {/* Header bar */}
@@ -803,35 +711,37 @@ const Home: React.FC = () => {
                                         fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 12,
                                         background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0',
                                     }}>
-                                        AI ENGINE READY
+                                        AI READY
                                     </span>
                                 </div>
                                 <p style={{ fontSize: 13, color: '#64748b', margin: '3px 0 0' }}>
-                                    High-speed multi-frame optical inspection system (10–15 FPS)
+                                    Continuous 15 FPS live scanning with end detection & frame gallery
                                 </p>
                             </div>
                         </div>
 
-                        {/* Top quick stats / info */}
+                        {/* Top quick metrics */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{
                                 padding: '8px 14px', borderRadius: 10, background: '#ffffff',
                                 border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                             }}>
-                                <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Capture Rate</span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{targetFps} Frames/Sec</span>
+                                <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Scan Rate</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>15 FPS (Continuous)</span>
                             </div>
-                            <div style={{
-                                padding: '8px 14px', borderRadius: 10, background: '#ffffff',
-                                border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                            }}>
-                                <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Burst Size</span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{frameCount} Frames</span>
-                            </div>
+                            {capturedFrames.length > 0 && (
+                                <div style={{
+                                    padding: '8px 14px', borderRadius: 10, background: '#ffffff',
+                                    border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                }}>
+                                    <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Captured</span>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#047857' }}>{capturedFrames.length} Frames</span>
+                                </div>
+                            )}
                         </div>
                     </header>
 
-                    {/* ══ HERO ACTION CARD: "CLICK HERE TO DETECT DEFECT" ══ */}
+                    {/* ══ HERO CARD: "CLICK HERE TO DETECT DEFECT" ══ */}
                     <div style={{
                         background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
                         border: '1.5px solid #a7f3d0',
@@ -845,7 +755,7 @@ const Home: React.FC = () => {
                         flexWrap: 'wrap',
                         gap: 20,
                     }}>
-                        <div style={{ maxWidth: 540 }}>
+                        <div style={{ maxWidth: 560 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                                 <span style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -853,103 +763,57 @@ const Home: React.FC = () => {
                                     background: '#d1fae5', padding: '4px 10px', borderRadius: 20,
                                 }}>
                                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                                    Live Inspection Camera
+                                    Live Auto-Scanner
                                 </span>
-                                <span style={{ fontSize: 12, color: '#64748b' }}>• Instant 10–15 FPS Burst</span>
+                                <span style={{ fontSize: 12, color: '#64748b' }}>• Starts recording 15 FPS immediately</span>
                             </div>
                             <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 8px', color: '#0f172a', letterSpacing: '-0.02em' }}>
                                 Start Live Scanning & Defect Capture
                             </h2>
                             <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.5, margin: 0 }}>
-                                Open the live camera scanner to capture high-speed sequential frames for surface defect analysis, tire tread defects, or anomaly detection.
+                                Opens the camera screen, automatically records 15 frames per second continuously, and saves all frames when you press <strong>End Detection</strong>.
                             </p>
                         </div>
 
                         {/* Primary Button */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 260 }}>
-                            <button
-                                onClick={() => setActiveScreen('scanner')}
-                                style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                                    padding: '16px 28px', borderRadius: 14,
-                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                    color: '#ffffff',
-                                    fontSize: 16, fontWeight: 700,
-                                    border: 'none', cursor: 'pointer',
-                                    boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
-                                    transition: 'all 0.2s ease',
-                                }}
-                            >
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                    <circle cx="12" cy="13" r="4" />
-                                </svg>
-                                <span>Click here to detect defect</span>
-                            </button>
-
-                            {/* Preset controls */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                <div style={{ display: 'flex', background: '#ffffff', borderRadius: 8, padding: 2, border: '1px solid #cbd5e1' }}>
-                                    <button
-                                        onClick={() => setTargetFps(10)}
-                                        style={{
-                                            border: 'none', padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                                            background: targetFps === 10 ? '#10b981' : 'transparent',
-                                            color: targetFps === 10 ? '#ffffff' : '#475569',
-                                            fontWeight: targetFps === 10 ? 700 : 500,
-                                        }}
-                                    >10 FPS</button>
-                                    <button
-                                        onClick={() => setTargetFps(15)}
-                                        style={{
-                                            border: 'none', padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                                            background: targetFps === 15 ? '#10b981' : 'transparent',
-                                            color: targetFps === 15 ? '#ffffff' : '#475569',
-                                            fontWeight: targetFps === 15 ? 700 : 500,
-                                        }}
-                                    >15 FPS</button>
-                                </div>
-                                <div style={{ display: 'flex', background: '#ffffff', borderRadius: 8, padding: 2, border: '1px solid #cbd5e1' }}>
-                                    <button
-                                        onClick={() => setFrameCount(10)}
-                                        style={{
-                                            border: 'none', padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                                            background: frameCount === 10 ? '#10b981' : 'transparent',
-                                            color: frameCount === 10 ? '#ffffff' : '#475569',
-                                            fontWeight: frameCount === 10 ? 700 : 500,
-                                        }}
-                                    >10 Frames</button>
-                                    <button
-                                        onClick={() => setFrameCount(15)}
-                                        style={{
-                                            border: 'none', padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                                            background: frameCount === 15 ? '#10b981' : 'transparent',
-                                            color: frameCount === 15 ? '#ffffff' : '#475569',
-                                            fontWeight: frameCount === 15 ? 700 : 500,
-                                        }}
-                                    >15 Frames</button>
-                                </div>
-                            </div>
-                        </div>
+                        <button
+                            onClick={() => setActiveScreen('scanner')}
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                                padding: '16px 30px', borderRadius: 14,
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: '#ffffff',
+                                fontSize: 16, fontWeight: 700,
+                                border: 'none', cursor: 'pointer',
+                                boxShadow: '0 6px 20px rgba(16, 185, 129, 0.35)',
+                                transition: 'all 0.2s ease',
+                            }}
+                        >
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                <circle cx="12" cy="13" r="4" />
+                            </svg>
+                            <span>Click here to detect defect</span>
+                        </button>
                     </div>
 
-                    {/* ═══ CAPTURED FRAMES SECTION ═══ */}
+                    {/* ═══ CAPTURED FRAMES SECTION ON LANDING SCREEN ═══ */}
                     {capturedFrames.length > 0 ? (
                         <div>
-                            {/* Gallery Toolbar */}
+                            {/* Toolbar */}
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 flexWrap: 'wrap', gap: 12, marginBottom: 18,
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                                        Captured Frames
+                                        All Captured Frames
                                     </h3>
                                     <span style={{
                                         fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
                                         background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0',
                                     }}>
-                                        {capturedFrames.length} Frames @ {targetFps} FPS
+                                        {capturedFrames.length} Frames @ 15 FPS
                                     </span>
                                 </div>
 
@@ -1009,7 +873,7 @@ const Home: React.FC = () => {
                             {/* Responsive Frames Grid */}
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
                                 gap: 16,
                             }}>
                                 {capturedFrames.map((frame) => (
@@ -1096,7 +960,7 @@ const Home: React.FC = () => {
                                 No Frames Captured Yet
                             </h3>
                             <p style={{ fontSize: 13, color: '#64748b', maxWidth: 400, margin: '0 auto 20px' }}>
-                                Tap <strong>"Click here to detect defect"</strong> above to launch the live scanner and capture 10 to 15 frames per second.
+                                Click <strong>"Click here to detect defect"</strong> above. The camera will automatically start capturing at 15 FPS, and pressing <strong>End Detection</strong> will display all frames here.
                             </p>
                             <button
                                 onClick={() => setActiveScreen('scanner')}
@@ -1209,7 +1073,7 @@ const Home: React.FC = () => {
                                 }}>
                                     <div>
                                         <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
-                                            Live Sequence Playback ({targetFps} FPS)
+                                            Live Sequence Playback (15 FPS)
                                         </h4>
                                         <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
                                             Frame {playbackIndex + 1} of {capturedFrames.length} ({capturedFrames[playbackIndex]?.timeString})
