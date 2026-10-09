@@ -373,7 +373,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         setLiveFrameCount(1);
 
         // Capture continuous frames at 15 FPS (~66.6ms intervals)
-        const intervalMs = Math.round(1000 / 5);
+        const intervalMs = Math.round(1000 / 2);
         const timer = window.setInterval(() => {
             if (!videoRef.current) return;
 
@@ -473,7 +473,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                         background: '#ecfdf5', border: '1px solid #a7f3d0',
                     }}>
                         <span style={{ color: '#047857', fontSize: 11, fontWeight: 700, fontFamily: 'monospace' }}>
-                            5 FPS
+                            2 FPS
                         </span>
                     </div>
                 </div>
@@ -498,7 +498,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             boxShadow: '0 0 6px #ef4444', animation: 'blink 1s ease-in-out infinite',
                         }} />
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
-                            5 FPS • {liveFrameCount} FRAMES
+                            2 FPS • {liveFrameCount} FRAMES
                         </span>
                     </div>
                 )}
@@ -571,7 +571,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             </span>
                         </div>
                         <div style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>
-                            5 FPS
+                            2 FPS
                         </div>
                     </div>
 
@@ -636,7 +636,7 @@ const Home: React.FC = () => {
     useEffect(() => {
         let timer: number | null = null;
         if (isPlayingSequence && isAutoPlaying && capturedFrames.length > 0) {
-            const frameDelay = Math.round(1000 / 5);
+            const frameDelay = Math.round(1000 / 2);
             timer = window.setInterval(() => {
                 setPlaybackIndex(prev => (prev + 1) % capturedFrames.length);
             }, frameDelay);
@@ -703,7 +703,7 @@ const Home: React.FC = () => {
                                     <span className="ai-ready-badge">AI READY</span>
                                 </div>
                                 <p className="brand-subtitle">
-                                    Continuous 5 FPS live scanning with frame gallery
+                                    Continuous 2 FPS live scanning with frame gallery
                                 </p>
                             </div>
                         </div>
@@ -712,7 +712,7 @@ const Home: React.FC = () => {
                         <div className="header-chips-row">
                             <div className="status-chip">
                                 <span className="chip-label">Scan Rate</span>
-                                <span className="chip-value">5 FPS Live</span>
+                                <span className="chip-value">2 FPS Live</span>
                             </div>
                             {capturedFrames.length > 0 && (
                                 <div className="status-chip highlight">
@@ -731,13 +731,13 @@ const Home: React.FC = () => {
                                     <span className="pulse-dot" />
                                     Live Auto-Scanner
                                 </span>
-                                <span className="hero-rate-tag">5 FPS Continuous</span>
+                                <span className="hero-rate-tag">2 FPS Continuous</span>
                             </div>
                             <h2 className="hero-heading">
                                 Start Live Scanning & Defect Capture
                             </h2>
                             <p className="hero-desc">
-                                Opens the camera screen, automatically records 5 frames/sec continuously, and saves all frames when you press <strong>End Detection</strong>.
+                                Opens the camera screen, automatically records 2 frames/sec continuously, and saves all frames when you press <strong>End Detection</strong>.
                             </p>
                         </div>
 
@@ -764,7 +764,7 @@ const Home: React.FC = () => {
                                 <div className="toolbar-title-box">
                                     <h3 className="toolbar-title">Captured Frames</h3>
                                     <span className="toolbar-count-badge">
-                                        {capturedFrames.length} Frames @ 5 FPS
+                                        {capturedFrames.length} Frames @ 2 FPS
                                     </span>
                                 </div>
 
@@ -780,7 +780,7 @@ const Home: React.FC = () => {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="#10b981" stroke="#10b981" strokeWidth="2">
                                             <polygon points="5 3 19 12 5 21 5 3" />
                                         </svg>
-                                        <span>Play 5 FPS</span>
+                                        <span>Play 2 FPS</span>
                                     </button>
 
                                     <button
@@ -855,7 +855,7 @@ const Home: React.FC = () => {
                                 No Frames Captured Yet
                             </h3>
                             <p className="empty-desc">
-                                Click <strong>"Click here to detect defect"</strong> above. The camera will automatically start capturing at 5 FPS, and pressing <strong>End Detection</strong> will display all frames here.
+                                Click <strong>"Click here to detect defect"</strong> above. The camera will automatically start capturing at 2 FPS, and pressing <strong>End Detection</strong> will display all frames here.
                             </p>
                             <button
                                 onClick={() => setActiveScreen('scanner')}
@@ -925,7 +925,7 @@ const Home: React.FC = () => {
                                 <div className="modal-header">
                                     <div>
                                         <h4 className="modal-title">
-                                            Sequence Playback (5 FPS)
+                                            Sequence Playback (2 FPS)
                                         </h4>
                                         <span className="modal-subtitle highlight">
                                             Frame {playbackIndex + 1} of {capturedFrames.length} ({capturedFrames[playbackIndex]?.timeString})
