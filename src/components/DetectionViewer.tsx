@@ -21,6 +21,15 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
 
     const { width, height } = detection.image_size;
 
+    // Dynamically calculate readable badge & text sizes scaled to the image viewBox
+    const baseFontSize = Math.max(30, Math.round(width * 0.036));
+    const badgeH = Math.max(44, Math.round(baseFontSize * 1.55));
+    const badgePaddingX = Math.max(14, Math.round(baseFontSize * 0.65));
+    const strokeWidthPoly = Math.max(4, Math.round(width * 0.005));
+    const strokeWidthBox = Math.max(3, Math.round(width * 0.0035));
+    const badgeRadius = Math.max(6, Math.round(baseFontSize * 0.22));
+    const badgeBorderWidth = Math.max(1.5, Math.round(baseFontSize * 0.06));
+
     return (
         <svg
             viewBox={`0 0 ${width} ${height}`}
@@ -39,6 +48,12 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
                 const boxW = Math.max(0, x2 - x1);
                 const boxH = Math.max(0, y2 - y1);
                 const confPercent = (zoneData.confidence * 100).toFixed(1);
+                const labelText = `${theme.name} ${confPercent}%`;
+                const badgeW = Math.round(labelText.length * (baseFontSize * 0.64) + badgePaddingX * 2);
+
+                // Keep badge inside canvas and above bounding box if space permits
+                const badgeY = y1 > badgeH + 8 ? y1 - badgeH - 8 : Math.min(height - badgeH - 4, y1 + 8);
+                const badgeX = Math.max(4, Math.min(width - badgeW - 4, x1));
 
                 return (
                     <g key={zoneKey} className={`zone-${zoneKey}`}>
@@ -50,7 +65,7 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
                                     points={poly.map(([px, py]) => `${px},${py}`).join(' ')}
                                     fill={theme.fill}
                                     stroke={theme.stroke}
-                                    strokeWidth="3.5"
+                                    strokeWidth={strokeWidthPoly}
                                     strokeLinejoin="round"
                                 />
                             ))}
@@ -64,32 +79,35 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
                                 height={boxH}
                                 fill="none"
                                 stroke={theme.stroke}
-                                strokeWidth="2.5"
-                                strokeDasharray="8 4"
-                                rx="4"
+                                strokeWidth={strokeWidthBox}
+                                strokeDasharray={`${strokeWidthBox * 3} ${strokeWidthBox * 1.5}`}
+                                rx={badgeRadius}
                             />
                         )}
 
-                        {/* 3. Zone Label & Confidence Badge */}
+                        {/* 3. Zone Label & Confidence Badge (Large, crisp, high-visibility) */}
                         {showLabels && zoneData.bbox && (
                             <g>
                                 <rect
-                                    x={x1}
-                                    y={Math.max(0, y1 - 28)}
-                                    width={Math.max(130, theme.name.length * 9.5 + 65)}
-                                    height={24}
+                                    x={badgeX}
+                                    y={badgeY}
+                                    width={badgeW}
+                                    height={badgeH}
                                     fill={theme.stroke}
-                                    rx="5"
+                                    stroke="#ffffff"
+                                    strokeWidth={badgeBorderWidth}
+                                    rx={badgeRadius}
                                 />
                                 <text
-                                    x={x1 + 8}
-                                    y={Math.max(0, y1 - 28) + 16}
+                                    x={badgeX + badgePaddingX}
+                                    y={badgeY + Math.round(badgeH * 0.72)}
                                     fill="#ffffff"
-                                    fontSize="12.5"
-                                    fontWeight="bold"
-                                    fontFamily="'DM Sans', system-ui, sans-serif"
+                                    fontSize={baseFontSize}
+                                    fontWeight="800"
+                                    fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                                    letterSpacing="0.02em"
                                 >
-                                    {theme.name} {confPercent}%
+                                    {labelText}
                                 </text>
                             </g>
                         )}
@@ -325,9 +343,9 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                     {detection.route && (
                         <span
                             style={{
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 700,
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 borderRadius: '6px',
                                 background: '#ecfdf5',
                                 color: '#047857',
@@ -341,9 +359,9 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                     {detection.inference_time_ms !== undefined && (
                         <span
                             style={{
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 600,
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 borderRadius: '6px',
                                 background: '#ffffff',
                                 color: '#475569',
@@ -356,9 +374,9 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                     )}
                     <span
                         style={{
-                            fontSize: '11px',
+                            fontSize: '12px',
                             fontWeight: 700,
-                            padding: '3px 8px',
+                            padding: '4px 10px',
                             borderRadius: '6px',
                             background: '#eff6ff',
                             color: '#1d4ed8',
@@ -370,31 +388,31 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                 </div>
 
                 {/* Layer Toggle Checkboxes */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={showPolygons}
                             onChange={onTogglePolygons}
-                            style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 15, height: 15 }}
                         />
                         Polygons
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={showBboxes}
                             onChange={onToggleBboxes}
-                            style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 15, height: 15 }}
                         />
                         Boxes
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={showLabels}
                             onChange={onToggleLabels}
-                            style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 15, height: 15 }}
                         />
                         Labels
                     </label>
@@ -402,13 +420,13 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
             </div>
 
             {/* Zones Detailed Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.01em' }}>
                     Detected Defect & Inspection Zones
                 </div>
                 {zonesList.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                        No specific zones detected in this frame.
+                    <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', padding: '8px 0' }}>
+                        No specific defect zones detected in this frame.
                     </div>
                 ) : (
                     zonesList.map(([zoneKey, zoneData]) => {
@@ -422,46 +440,49 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                                 key={zoneKey}
                                 style={{
                                     border: `1.5px solid ${theme.border}`,
-                                    borderRadius: '10px',
-                                    padding: '10px 14px',
+                                    borderRadius: '12px',
+                                    padding: '12px 16px',
                                     background: '#ffffff',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '6px',
+                                    gap: '8px',
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flexWrap: 'wrap' }}>
                                         <div
                                             style={{
-                                                width: '10px',
-                                                height: '10px',
+                                                width: '12px',
+                                                height: '12px',
                                                 borderRadius: '50%',
                                                 background: theme.stroke,
+                                                boxShadow: `0 0 6px ${theme.stroke}66`,
                                             }}
                                         />
-                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
                                             {theme.name}
                                         </span>
                                         <span
                                             style={{
-                                                fontSize: '10px',
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                padding: '3px 8px',
+                                                borderRadius: '6px',
                                                 background: theme.badgeBg,
                                                 color: theme.badgeText,
-                                                fontWeight: 700,
+                                                border: `1px solid ${theme.border}`,
+                                                fontWeight: 800,
+                                                fontFamily: 'monospace',
                                             }}
                                         >
                                             {zoneKey}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: 800, color: theme.stroke }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <span style={{ fontSize: '16px', fontWeight: 800, color: theme.stroke }}>
                                             {confPercent}%
                                         </span>
-                                        <span style={{ fontSize: '10px', color: '#64748b' }}>confidence</span>
+                                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>confidence</span>
                                     </div>
                                 </div>
 
@@ -469,9 +490,9 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                                 <div
                                     style={{
                                         width: '100%',
-                                        height: '6px',
+                                        height: '7px',
                                         background: '#f1f5f9',
-                                        borderRadius: '3px',
+                                        borderRadius: '4px',
                                         overflow: 'hidden',
                                     }}
                                 >
@@ -480,7 +501,7 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                                             width: `${confPercent}%`,
                                             height: '100%',
                                             background: theme.stroke,
-                                            borderRadius: '3px',
+                                            borderRadius: '4px',
                                             transition: 'width 0.4s ease',
                                         }}
                                     />
@@ -491,17 +512,17 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '12px',
-                                        fontSize: '11px',
+                                        gap: '14px',
+                                        fontSize: '12px',
                                         color: '#64748b',
                                         marginTop: '2px',
                                         flexWrap: 'wrap',
                                     }}
                                 >
-                                    <span>Area Coverage: <strong style={{ color: '#0f172a' }}>{areaPercent}%</strong></span>
-                                    <span>Polygons: <strong style={{ color: '#0f172a' }}>{polygonCount}</strong></span>
+                                    <span>Area Coverage: <strong style={{ color: '#0f172a', fontWeight: 700 }}>{areaPercent}%</strong></span>
+                                    <span>Polygons: <strong style={{ color: '#0f172a', fontWeight: 700 }}>{polygonCount}</strong></span>
                                     {zoneData.bbox && (
-                                        <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                                        <span style={{ fontFamily: 'monospace', fontSize: '11px', background: '#f8fafc', padding: '2px 6px', borderRadius: '4px' }}>
                                             BBox: [{zoneData.bbox.join(', ')}]
                                         </span>
                                     )}

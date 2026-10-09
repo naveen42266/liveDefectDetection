@@ -616,40 +616,40 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                     left: 12,
                     right: 12,
                     zIndex: 25,
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    padding: '10px 14px',
-                    borderRadius: 14,
-                    border: '1.5px solid #e2e8f0',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    background: 'rgba(255, 255, 255, 0.96)',
+                    backdropFilter: 'blur(12px)',
+                    padding: '12px 16px',
+                    borderRadius: 16,
+                    border: '1.5px solid #cbd5e1',
+                    boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 6,
+                    gap: 8,
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{
-                                width: 7, height: 7, borderRadius: '50%',
+                                width: 9, height: 9, borderRadius: '50%',
                                 background: latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? '#10b981' : '#f59e0b',
-                                boxShadow: latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? '0 0 6px #10b981' : 'none',
+                                boxShadow: latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? '0 0 8px #10b981' : 'none',
                             }} />
-                            <span style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
                                 DETECTED ZONES ({latestDetection?.detected_zones?.length || 0})
                             </span>
                         </div>
                         {latestDetection?.inference_time_ms ? (
-                            <span style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace', fontWeight: 600 }}>
+                            <span style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace', fontWeight: 700 }}>
                                 ⚡ {latestDetection.inference_time_ms.toFixed(0)}ms
                             </span>
                         ) : (
-                            <span style={{ fontSize: 10, color: '#94a3b8', fontStyle: 'italic' }}>
+                            <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
                                 In Real-Time
                             </span>
                         )}
                     </div>
 
-                    {/* Detected zones chips list */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {/* Detected zones chips list (Enlarged & Prominent) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         {latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? (
                             latestDetection.detected_zones.map((zoneKey) => {
                                 const theme = getZoneTheme(zoneKey);
@@ -661,23 +661,24 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                                         style={{
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            gap: 5,
-                                            padding: '4px 10px',
-                                            borderRadius: 8,
+                                            gap: 7,
+                                            padding: '6px 14px',
+                                            borderRadius: 10,
                                             background: theme.badgeBg,
-                                            border: `1px solid ${theme.border}`,
+                                            border: `1.5px solid ${theme.border}`,
                                             color: theme.badgeText,
-                                            fontSize: 11,
-                                            fontWeight: 700,
+                                            fontSize: 14,
+                                            fontWeight: 800,
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                                         }}
                                     >
-                                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.stroke }} />
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: theme.stroke, boxShadow: `0 0 5px ${theme.stroke}99` }} />
                                         <span>{zoneKey}{confStr}</span>
                                     </div>
                                 );
                             })
                         ) : (
-                            <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+                            <span style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic', padding: '2px 0' }}>
                                 Scanning frame for detected_zones (tread_shoulder, bead, sidewall)...
                             </span>
                         )}
@@ -764,6 +765,7 @@ const Home: React.FC = () => {
 
     // Modal viewers
     const [selectedFrame, setSelectedFrame] = useState<CapturedFrame | null>(null);
+    const [fullScreenImageFrame, setFullScreenImageFrame] = useState<CapturedFrame | null>(null);
     const [isPlayingSequence, setIsPlayingSequence] = useState(false);
     const [playbackIndex, setPlaybackIndex] = useState(0);
     const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -1059,13 +1061,13 @@ const Home: React.FC = () => {
                             {/* ═══ OVERALL DETECTED ZONES SUMMARY BANNER ═══ */}
                             {uniqueDetectedZones.length > 0 && (
                                 <div className="overall-zones-banner">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-                                        <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
                                             DETECTED ZONES IN CAPTURE ({uniqueDetectedZones.length}):
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                         {uniqueDetectedZones.map(zone => {
                                             const theme = getZoneTheme(zone);
                                             return (
@@ -1074,17 +1076,18 @@ const Home: React.FC = () => {
                                                     style={{
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
-                                                        gap: 5,
-                                                        padding: '4px 10px',
-                                                        borderRadius: 6,
+                                                        gap: 6,
+                                                        padding: '5px 12px',
+                                                        borderRadius: 8,
                                                         background: theme.badgeBg,
-                                                        border: `1px solid ${theme.border}`,
+                                                        border: `1.5px solid ${theme.border}`,
                                                         color: theme.badgeText,
-                                                        fontSize: 11,
-                                                        fontWeight: 700,
+                                                        fontSize: 13,
+                                                        fontWeight: 800,
+                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                                                     }}
                                                 >
-                                                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: theme.stroke }} />
+                                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: theme.stroke, boxShadow: `0 0 4px ${theme.stroke}99` }} />
                                                     {zone}
                                                 </span>
                                             );
@@ -1292,8 +1295,12 @@ const Home: React.FC = () => {
                                 </div>
 
                                 <div className="modal-inspect-body">
-                                    {/* Image Viewport with SVG overlay */}
-                                    <div className="modal-image-viewport">
+                                    {/* Image Viewport with SVG overlay (Clickable to open in separate dialog) */}
+                                    <div
+                                        className="modal-image-viewport"
+                                        onClick={() => setFullScreenImageFrame(selectedFrame)}
+                                        title="Click to view image in full-size dialog"
+                                    >
                                         <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, maxWidth: '100%' }}>
                                             <img
                                                 src={selectedFrame.dataUrl}
@@ -1310,10 +1317,19 @@ const Home: React.FC = () => {
                                                 />
                                             )}
                                         </div>
+                                        <div className="image-expand-hint">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <polyline points="15 3 21 3 21 9" />
+                                                <polyline points="9 21 3 21 3 15" />
+                                                <line x1="21" y1="3" x2="14" y2="10" />
+                                                <line x1="3" y1="21" x2="10" y2="14" />
+                                            </svg>
+                                            <span>Click to view full image</span>
+                                        </div>
                                     </div>
 
                                     {/* Defect Detection Controls & Details */}
-                                    <div style={{ padding: '4px 16px 16px' }}>
+                                    <div style={{ padding: '6px 16px 20px' }}>
                                         <DetectionControlsPanel
                                             detection={selectedFrame.detection}
                                             isDetecting={selectedFrame.isDetecting}
@@ -1326,6 +1342,92 @@ const Home: React.FC = () => {
                                             onToggleLabels={() => setShowLabels(l => !l)}
                                             onDetect={() => handleDetectFrame(selectedFrame)}
                                         />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ═══ MODAL: SEPARATE FULL-SIZE IMAGE DIALOG ═══ */}
+                    {fullScreenImageFrame && (
+                        <div
+                            onClick={() => setFullScreenImageFrame(null)}
+                            className="modal-backdrop full-image-backdrop"
+                        >
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="modal-dialog full-image-dialog"
+                            >
+                                <div className="modal-header full-image-header">
+                                    <div>
+                                        <h4 className="modal-title full-image-title">
+                                            Frame #{fullScreenImageFrame.frameIndex} • Full Image View
+                                        </h4>
+                                        <span className="modal-subtitle">
+                                            {fullScreenImageFrame.width}×{fullScreenImageFrame.height}px
+                                            {fullScreenImageFrame.detection?.route && ` • Route: ${fullScreenImageFrame.detection.route}`}
+                                            {fullScreenImageFrame.detection?.detected_zones && ` • (${fullScreenImageFrame.detection.detected_zones.length} Zones)`}
+                                        </span>
+                                    </div>
+                                    <div className="modal-header-actions">
+                                        <label className="full-toggle-lbl">
+                                            <input
+                                                type="checkbox"
+                                                checked={showPolygons}
+                                                onChange={() => setShowPolygons(p => !p)}
+                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                            />
+                                            Polygons
+                                        </label>
+                                        <label className="full-toggle-lbl">
+                                            <input
+                                                type="checkbox"
+                                                checked={showBboxes}
+                                                onChange={() => setShowBboxes(b => !b)}
+                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                            />
+                                            Boxes
+                                        </label>
+                                        <label className="full-toggle-lbl">
+                                            <input
+                                                type="checkbox"
+                                                checked={showLabels}
+                                                onChange={() => setShowLabels(l => !l)}
+                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                            />
+                                            Labels
+                                        </label>
+                                        <button
+                                            onClick={() => downloadFrame(fullScreenImageFrame)}
+                                            className="modal-action-btn"
+                                        >
+                                            Download
+                                        </button>
+                                        <button
+                                            onClick={() => setFullScreenImageFrame(null)}
+                                            className="modal-close-btn"
+                                            aria-label="Close full view"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="full-image-viewport">
+                                    <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, maxWidth: '100%', maxHeight: '100%' }}>
+                                        <img
+                                            src={fullScreenImageFrame.dataUrl}
+                                            alt={`Frame ${fullScreenImageFrame.frameIndex} full view`}
+                                            className="full-image-elem"
+                                        />
+                                        {fullScreenImageFrame.detection && (
+                                            <FrameDetectionOverlay
+                                                detection={fullScreenImageFrame.detection}
+                                                showPolygons={showPolygons}
+                                                showBboxes={showBboxes}
+                                                showLabels={showLabels}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1887,31 +1989,31 @@ const Home: React.FC = () => {
         .frame-card-zones-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 4px;
+            gap: 5px;
             width: 100%;
         }
 
         .frame-zone-tag {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 2px 6px;
-            border-radius: 4px;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 6px;
             border: 1px solid transparent;
-            font-size: 9.5px;
-            font-weight: 700;
+            font-size: 11.5px;
+            font-weight: 800;
             letter-spacing: 0.01em;
         }
 
         .zone-dot {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             display: inline-block;
         }
 
         .frame-zone-status {
-            font-size: 9.5px;
+            font-size: 11px;
             font-weight: 600;
         }
 
@@ -2006,8 +2108,8 @@ const Home: React.FC = () => {
         }
 
         .modal-dialog.inspect {
-            max-width: 680px;
-            max-height: 92dvh;
+            max-width: 660px;
+            max-height: 90dvh;
         }
 
         .modal-inspect-body {
@@ -2075,20 +2177,113 @@ const Home: React.FC = () => {
         }
 
         .modal-image-viewport {
-            background: #0f172a;
+            background: #020617;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 12px;
-            min-height: 220px;
+            padding: 8px 12px;
+            max-height: 30vh;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            border-bottom: 1px solid #e2e8f0;
+            user-select: none;
         }
 
         .modal-full-img {
             max-width: 100%;
-            max-height: 52vh;
+            max-height: 28vh;
+            height: auto;
             object-fit: contain;
-            border-radius: 6px;
+            border-radius: 8px;
             display: block;
+            margin: 0 auto;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-image-viewport:hover .modal-full-img {
+            transform: scale(1.015);
+        }
+
+        .image-expand-hint {
+            position: absolute;
+            bottom: 8px;
+            right: 10px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Full-Size Separate Image Dialog */
+        .modal-backdrop.full-image-backdrop {
+            z-index: 150;
+            background: rgba(2, 6, 23, 0.94);
+            padding: 10px;
+        }
+
+        .modal-dialog.full-image-dialog {
+            max-width: 95vw;
+            max-height: 95dvh;
+            background: #0b1120;
+            border: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+        }
+
+        .full-image-header {
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+            padding: 10px 16px;
+        }
+
+        .full-image-title {
+            color: #f8fafc;
+        }
+
+        .full-toggle-lbl {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #cbd5e1;
+            cursor: pointer;
+        }
+
+        .full-image-viewport {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            padding: 12px;
+            background: #020617;
+            min-height: 250px;
+        }
+
+        .full-image-elem {
+            max-width: 92vw;
+            max-height: 82dvh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            display: block;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
         }
 
         .modal-player-viewport {
