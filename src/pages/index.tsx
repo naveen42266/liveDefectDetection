@@ -1,4 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import {
+    detectAreaDefects,
+    DetectApiResponse,
+    getZoneTheme,
+} from '../services/defectDetectionApi';
+import {
+    FrameDetectionOverlay,
+    ScanningOverlay,
+    DetectionControlsPanel,
+} from '../components/DetectionViewer';
 
 // ─── CAMERA METRICS & FRAME TYPES ───────────────────────────────────────────
 export interface CameraMetrics {
@@ -18,6 +28,9 @@ export interface CapturedFrame {
     timeString: string;
     width: number;
     height: number;
+    detection?: DetectApiResponse | null;
+    isDetecting?: boolean;
+    detectionError?: string | null;
 }
 
 interface ExtendedMediaTrackConstraintSet extends MediaTrackConstraintSet {
@@ -37,6 +50,8 @@ interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
 interface CameraCaptureProps {
     onCaptureFrames: (frames: CapturedFrame[]) => void;
     onClose: () => void;
+    onFrameDetected?: (frameId: string, detection: DetectApiResponse) => void;
+    onFrameDetectionError?: (frameId: string, error: string) => void;
 }
 
 // Format aspect ratio helper for display (e.g. "9:16", "3:4", etc.)
@@ -198,6 +213,8 @@ async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
 const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
     onClose,
     onCaptureFrames,
+    onFrameDetected,
+    onFrameDetectionError,
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -206,6 +223,8 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [liveFrameCount, setLiveFrameCount] = useState(0);
+    const [liveDetectedCount, setLiveDetectedCount] = useState(0);
+    const [latestDetection, setLatestDetection] = useState<DetectApiResponse | null>(null);
     const [flashSupported, setFlashSupported] = useState(false);
     const [isFlashOn, setIsFlashOn] = useState(false);
     const [cameraMetrics, setCameraMetrics] = useState<CameraMetrics>({});
@@ -350,7 +369,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         return { dataUrl: '', width, height };
     };
 
-    // ─── AUTO-START 15 FPS CONTINUOUS CAPTURE ON SCREEN OPEN ──────────────
+    // ─── AUTO-START CAPTURE WITH REAL-TIME API DETECTION FOR EACH FRAME ───
     useEffect(() => {
         if (!isCameraReady || !videoRef.current) return;
 
@@ -358,10 +377,30 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         const startTime = performance.now();
         let frameNum = 0;
 
+        // Function to invoke API detection immediately for each captured frame
+        const triggerFrameApiDetection = (frame: CapturedFrame) => {
+            frame.isDetecting = true;
+            detectAreaDefects(frame.dataUrl)
+                .then((result) => {
+                    frame.detection = result;
+                    frame.isDetecting = false;
+                    frame.detectionError = null;
+                    setLiveDetectedCount(c => c + 1);
+                    setLatestDetection(result);
+                    onFrameDetected?.(frame.id, result);
+                })
+                .catch((err) => {
+                    const msg = err?.message || 'Detection failed';
+                    frame.detectionError = msg;
+                    frame.isDetecting = false;
+                    onFrameDetectionError?.(frame.id, msg);
+                });
+        };
+
         // Sample initial first frame immediately
         const first = grabFrame(videoRef.current);
         frameNum = 1;
-        framesCollectorRef.current.push({
+        const firstFrame: CapturedFrame = {
             id: `frame_${Date.now()}_1`,
             dataUrl: first.dataUrl,
             frameIndex: 1,
@@ -369,10 +408,13 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             timeString: '+0ms',
             width: first.width,
             height: first.height,
-        });
+            isDetecting: true,
+        };
+        framesCollectorRef.current.push(firstFrame);
         setLiveFrameCount(1);
+        triggerFrameApiDetection(firstFrame);
 
-        // Capture continuous frames at 15 FPS (~66.6ms intervals)
+        // Capture continuous frames at 2 FPS (500ms intervals) & run API detection
         const intervalMs = Math.round(1000 / 2);
         const timer = window.setInterval(() => {
             if (!videoRef.current) return;
@@ -382,7 +424,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             const elapsed = Math.round(now - startTime);
             const captured = grabFrame(videoRef.current);
 
-            framesCollectorRef.current.push({
+            const newFrame: CapturedFrame = {
                 id: `frame_${Date.now()}_${frameNum}`,
                 dataUrl: captured.dataUrl,
                 frameIndex: frameNum,
@@ -390,9 +432,14 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                 timeString: `+${elapsed}ms`,
                 width: captured.width,
                 height: captured.height,
-            });
+                isDetecting: true,
+            };
 
+            framesCollectorRef.current.push(newFrame);
             setLiveFrameCount(frameNum);
+
+            // Call Defect Detection API immediately for this newly captured frame
+            triggerFrameApiDetection(newFrame);
         }, intervalMs);
 
         captureTimerRef.current = timer;
@@ -401,7 +448,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             clearInterval(timer);
             captureTimerRef.current = null;
         };
-    }, [isCameraReady]);
+    }, [isCameraReady, onFrameDetected, onFrameDetectionError]);
 
     // ─── END DETECTION: FINISH CAPTURE & RETURN ALL FRAMES TO LANDING SCREEN ─
     const handleEndDetection = () => {
@@ -469,17 +516,19 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                     </div>
 
                     <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
                         padding: '5px 12px', borderRadius: 20,
                         background: '#ecfdf5', border: '1px solid #a7f3d0',
                     }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
                         <span style={{ color: '#047857', fontSize: 11, fontWeight: 700, fontFamily: 'monospace' }}>
-                            2 FPS
+                            AI: {liveDetectedCount}/{liveFrameCount}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* ══ PORTRAIT VIEWFINDER (CLEAN VIDEO FEED) ══ */}
+            {/* ══ PORTRAIT VIEWFINDER (CLEAN VIDEO FEED WITH LIVE AI OVERLAY) ══ */}
             <div ref={containerRef} style={{
                 position: 'relative', width: '100%', flex: 1,
                 overflow: 'hidden', background: '#f1f5f9',
@@ -546,6 +595,93 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             objectFit: 'cover',
                         }}
                     />
+
+                    {/* Live AI Detection Overlay on camera view */}
+                    {latestDetection && (
+                        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+                            <FrameDetectionOverlay
+                                detection={latestDetection}
+                                showPolygons={true}
+                                showBboxes={true}
+                                showLabels={true}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* ═══ LIVE SCREEN: DETECTED ZONES KEY DISPLAY ═══ */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
+                    zIndex: 25,
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    padding: '10px 14px',
+                    borderRadius: 14,
+                    border: '1.5px solid #e2e8f0',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{
+                                width: 7, height: 7, borderRadius: '50%',
+                                background: latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? '#10b981' : '#f59e0b',
+                                boxShadow: latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? '0 0 6px #10b981' : 'none',
+                            }} />
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>
+                                DETECTED ZONES ({latestDetection?.detected_zones?.length || 0})
+                            </span>
+                        </div>
+                        {latestDetection?.inference_time_ms ? (
+                            <span style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace', fontWeight: 600 }}>
+                                ⚡ {latestDetection.inference_time_ms.toFixed(0)}ms
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: 10, color: '#94a3b8', fontStyle: 'italic' }}>
+                                In Real-Time
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Detected zones chips list */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        {latestDetection?.detected_zones && latestDetection.detected_zones.length > 0 ? (
+                            latestDetection.detected_zones.map((zoneKey) => {
+                                const theme = getZoneTheme(zoneKey);
+                                const zoneData = latestDetection.zones?.[zoneKey];
+                                const confStr = zoneData?.confidence ? ` ${(zoneData.confidence * 100).toFixed(0)}%` : '';
+                                return (
+                                    <div
+                                        key={zoneKey}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 5,
+                                            padding: '4px 10px',
+                                            borderRadius: 8,
+                                            background: theme.badgeBg,
+                                            border: `1px solid ${theme.border}`,
+                                            color: theme.badgeText,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.stroke }} />
+                                        <span>{zoneKey}{confStr}</span>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+                                Scanning frame for detected_zones (tread_shoulder, bead, sidewall)...
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -598,7 +734,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             </span>
                         </button>
                         <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>
-                            {liveFrameCount} frames captured
+                            {liveFrameCount} frames • {liveDetectedCount} AI analyzed
                         </span>
                     </div>
 
@@ -632,7 +768,23 @@ const Home: React.FC = () => {
     const [playbackIndex, setPlaybackIndex] = useState(0);
     const [isAutoPlaying, setIsAutoPlaying] = useState(false);
 
-    // Flipbook player timer for 15 FPS playback
+    // AI Defect Detection states
+    const [showPolygons, setShowPolygons] = useState(true);
+    const [showBboxes, setShowBboxes] = useState(true);
+    const [showLabels, setShowLabels] = useState(true);
+    const [isBatchDetecting, setIsBatchDetecting] = useState(false);
+    const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
+    // Extract all unique detected_zones found across all frames
+    const uniqueDetectedZones = useMemo(() => {
+        const set = new Set<string>();
+        capturedFrames.forEach(f => {
+            f.detection?.detected_zones?.forEach(z => set.add(z));
+        });
+        return Array.from(set);
+    }, [capturedFrames]);
+
+    // Flipbook player timer for 2 FPS playback
     useEffect(() => {
         let timer: number | null = null;
         if (isPlayingSequence && isAutoPlaying && capturedFrames.length > 0) {
@@ -651,6 +803,63 @@ const Home: React.FC = () => {
         setCapturedFrames(frames);
         setActiveScreen('dashboard');
         setPlaybackIndex(0);
+    };
+
+    // ─── DEFECT DETECTION API INTEGRATION HANDLERS ────────────────────────────
+    const handleDetectFrame = async (frame: CapturedFrame) => {
+        // Mark as detecting
+        setCapturedFrames(prev =>
+            prev.map(f => (f.id === frame.id ? { ...f, isDetecting: true, detectionError: null } : f))
+        );
+        setSelectedFrame(prev =>
+            prev && prev.id === frame.id ? { ...prev, isDetecting: true, detectionError: null } : prev
+        );
+
+        try {
+            const result = await detectAreaDefects(frame.dataUrl);
+            setCapturedFrames(prev =>
+                prev.map(f =>
+                    f.id === frame.id
+                        ? { ...f, isDetecting: false, detection: result, detectionError: null }
+                        : f
+                )
+            );
+            setSelectedFrame(prev =>
+                prev && prev.id === frame.id
+                    ? { ...prev, isDetecting: false, detection: result, detectionError: null }
+                    : prev
+            );
+        } catch (err: any) {
+            const errorMsg = err?.message || 'Failed to detect defect zones. Please check network.';
+            setCapturedFrames(prev =>
+                prev.map(f =>
+                    f.id === frame.id
+                        ? { ...f, isDetecting: false, detectionError: errorMsg }
+                        : f
+                )
+            );
+            setSelectedFrame(prev =>
+                prev && prev.id === frame.id
+                    ? { ...prev, isDetecting: false, detectionError: errorMsg }
+                    : prev
+            );
+        }
+    };
+
+    const handleDetectAllFrames = async () => {
+        if (capturedFrames.length === 0 || isBatchDetecting) return;
+        setIsBatchDetecting(true);
+
+        const pending = capturedFrames.filter(f => !f.detection);
+        const toProcess = pending.length > 0 ? pending : capturedFrames;
+        setBatchProgress({ current: 0, total: toProcess.length });
+
+        for (let i = 0; i < toProcess.length; i++) {
+            setBatchProgress({ current: i + 1, total: toProcess.length });
+            await handleDetectFrame(toProcess[i]);
+        }
+
+        setIsBatchDetecting(false);
     };
 
     // Download single frame as JPEG
@@ -672,6 +881,25 @@ const Home: React.FC = () => {
         });
     };
 
+    // Live frame detection handler from camera stream
+    const handleLiveFrameDetected = useCallback((frameId: string, detection: DetectApiResponse) => {
+        setCapturedFrames(prev =>
+            prev.map(f => (f.id === frameId ? { ...f, detection, isDetecting: false, detectionError: null } : f))
+        );
+        setSelectedFrame(prev =>
+            prev && prev.id === frameId ? { ...prev, detection, isDetecting: false, detectionError: null } : prev
+        );
+    }, []);
+
+    const handleLiveFrameDetectionError = useCallback((frameId: string, error: string) => {
+        setCapturedFrames(prev =>
+            prev.map(f => (f.id === frameId ? { ...f, isDetecting: false, detectionError: error } : f))
+        );
+        setSelectedFrame(prev =>
+            prev && prev.id === frameId ? { ...prev, isDetecting: false, detectionError: error } : prev
+        );
+    }, []);
+
     return (
         <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'DM Sans', sans-serif", color: '#0f172a', position: 'relative' }}>
             {/* ═══ SCREEN 2: LIVE CAMERA SCANNER ═══ */}
@@ -679,6 +907,8 @@ const Home: React.FC = () => {
                 <CameraCaptureAndroid
                     onClose={() => setActiveScreen('dashboard')}
                     onCaptureFrames={handleCapturedFrames}
+                    onFrameDetected={handleLiveFrameDetected}
+                    onFrameDetectionError={handleLiveFrameDetectionError}
                 />
             )}
 
@@ -769,6 +999,28 @@ const Home: React.FC = () => {
                                 </div>
 
                                 <div className="toolbar-actions">
+                                    {/* AI Detect All Button */}
+                                    <button
+                                        onClick={handleDetectAllFrames}
+                                        disabled={isBatchDetecting}
+                                        className="toolbar-btn ai-detect"
+                                        title="Send all captured frames to the AI Defect Detection API"
+                                    >
+                                        {isBatchDetecting ? (
+                                            <>
+                                                <div className="btn-spinner" />
+                                                <span>Analyzing {batchProgress.current}/{batchProgress.total}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                                </svg>
+                                                <span>AI Detect All</span>
+                                            </>
+                                        )}
+                                    </button>
+
                                     <button
                                         onClick={() => {
                                             setPlaybackIndex(0);
@@ -804,41 +1056,153 @@ const Home: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* ═══ OVERALL DETECTED ZONES SUMMARY BANNER ═══ */}
+                            {uniqueDetectedZones.length > 0 && (
+                                <div className="overall-zones-banner">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                                        <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
+                                            DETECTED ZONES IN CAPTURE ({uniqueDetectedZones.length}):
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        {uniqueDetectedZones.map(zone => {
+                                            const theme = getZoneTheme(zone);
+                                            return (
+                                                <span
+                                                    key={zone}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 5,
+                                                        padding: '4px 10px',
+                                                        borderRadius: 6,
+                                                        background: theme.badgeBg,
+                                                        border: `1px solid ${theme.border}`,
+                                                        color: theme.badgeText,
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: theme.stroke }} />
+                                                    {zone}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Responsive Frames Grid */}
                             <div className="responsive-frames-grid">
-                                {capturedFrames.map((frame) => (
-                                    <div
-                                        key={frame.id}
-                                        onClick={() => setSelectedFrame(frame)}
-                                        className="frame-card"
-                                    >
-                                        <div className="frame-thumb-wrapper">
-                                            <img
-                                                src={frame.dataUrl}
-                                                alt={`Frame ${frame.frameIndex}`}
-                                                className="frame-image"
-                                            />
-                                            {/* Frame badge */}
-                                            <span className="frame-index-badge">
-                                                #{frame.frameIndex}
-                                            </span>
+                                {capturedFrames.map((frame) => {
+                                    const detectedZones = frame.detection?.detected_zones || [];
+                                    return (
+                                        <div
+                                            key={frame.id}
+                                            onClick={() => setSelectedFrame(frame)}
+                                            className="frame-card"
+                                        >
+                                            <div className="frame-thumb-wrapper">
+                                                <img
+                                                    src={frame.dataUrl}
+                                                    alt={`Frame ${frame.frameIndex}`}
+                                                    className="frame-image"
+                                                />
+                                                {/* Frame badge */}
+                                                <span className="frame-index-badge">
+                                                    #{frame.frameIndex}
+                                                </span>
 
-                                            {/* Timestamp badge */}
-                                            <span className="frame-time-badge">
-                                                {frame.timeString}
-                                            </span>
-                                        </div>
+                                                {/* Timestamp badge */}
+                                                <span className="frame-time-badge">
+                                                    {frame.timeString}
+                                                </span>
 
-                                        <div className="frame-info-bar">
-                                            <span className="frame-info-num">
-                                                Frame #{frame.frameIndex}
-                                            </span>
-                                            <span className="frame-info-dim">
-                                                {frame.width}×{frame.height}
-                                            </span>
+                                                {/* Detection Status Overlay Badge */}
+                                                {frame.isDetecting && (
+                                                    <div className="frame-card-badge detecting">
+                                                        <span className="pulse-mini" />
+                                                        <span>Analyzing...</span>
+                                                    </div>
+                                                )}
+                                                {frame.detection && (
+                                                    <div className="frame-card-badge success">
+                                                        ✓ {detectedZones.length} Zones
+                                                    </div>
+                                                )}
+                                                {frame.detectionError && (
+                                                    <div className="frame-card-badge error">
+                                                        ✕ Error
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="frame-info-bar">
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+                                                    <span className="frame-info-num">
+                                                        Frame #{frame.frameIndex}
+                                                    </span>
+                                                    <span className="frame-info-dim">
+                                                        {frame.width}×{frame.height}
+                                                    </span>
+                                                </div>
+
+                                                {!frame.detection && !frame.isDetecting && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDetectFrame(frame);
+                                                        }}
+                                                        className="frame-quick-detect-btn"
+                                                        title="Run AI Defect Detection"
+                                                    >
+                                                        ⚡ Detect
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* ═══ DETECTED ZONES KEY DISPLAY ON EACH FRAME CARD ═══ */}
+                                            <div className="frame-card-zones-section">
+                                                {detectedZones.length > 0 ? (
+                                                    <div className="frame-card-zones-list">
+                                                        {detectedZones.map((zone) => {
+                                                            const theme = getZoneTheme(zone);
+                                                            const zoneData = frame.detection?.zones?.[zone];
+                                                            const conf = zoneData?.confidence ? ` ${(zoneData.confidence * 100).toFixed(0)}%` : '';
+                                                            return (
+                                                                <span
+                                                                    key={zone}
+                                                                    className="frame-zone-tag"
+                                                                    style={{
+                                                                        background: theme.badgeBg,
+                                                                        borderColor: theme.border,
+                                                                        color: theme.badgeText,
+                                                                    }}
+                                                                >
+                                                                    <span className="zone-dot" style={{ background: theme.stroke }} />
+                                                                    {zone}{conf}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : frame.isDetecting ? (
+                                                    <span className="frame-zone-status detecting">
+                                                        Detecting zones...
+                                                    </span>
+                                                ) : frame.detection ? (
+                                                    <span className="frame-zone-status empty">
+                                                        No zones detected
+                                                    </span>
+                                                ) : (
+                                                    <span className="frame-zone-status pending">
+                                                        Zones pending
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ) : (
@@ -866,7 +1230,7 @@ const Home: React.FC = () => {
                         </div>
                     )}
 
-                    {/* ═══ MODAL 1: SINGLE FRAME INSPECTOR ═══ */}
+                    {/* ═══ MODAL 1: SINGLE FRAME INSPECTOR WITH DEFECT DETECTION ═══ */}
                     {selectedFrame && (
                         <div
                             onClick={() => setSelectedFrame(null)}
@@ -883,9 +1247,35 @@ const Home: React.FC = () => {
                                         </h4>
                                         <span className="modal-subtitle">
                                             {selectedFrame.timeString} • {selectedFrame.width}×{selectedFrame.height}px
+                                            {selectedFrame.detection?.route && ` • Route: ${selectedFrame.detection.route}`}
                                         </span>
                                     </div>
                                     <div className="modal-header-actions">
+                                        <button
+                                            onClick={() => handleDetectFrame(selectedFrame)}
+                                            disabled={selectedFrame.isDetecting}
+                                            className="modal-action-btn"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                                background: selectedFrame.detection ? '#ecfdf5' : '#10b981',
+                                                color: selectedFrame.detection ? '#047857' : '#ffffff',
+                                                border: selectedFrame.detection ? '1px solid #a7f3d0' : 'none',
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                            </svg>
+                                            <span>
+                                                {selectedFrame.isDetecting
+                                                    ? 'Analyzing...'
+                                                    : selectedFrame.detection
+                                                    ? 'Re-Detect'
+                                                    : 'Detect AI'}
+                                            </span>
+                                        </button>
                                         <button
                                             onClick={() => downloadFrame(selectedFrame)}
                                             className="modal-action-btn"
@@ -901,12 +1291,42 @@ const Home: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="modal-image-viewport">
-                                    <img
-                                        src={selectedFrame.dataUrl}
-                                        alt={`Frame ${selectedFrame.frameIndex}`}
-                                        className="modal-full-img"
-                                    />
+                                <div className="modal-inspect-body">
+                                    {/* Image Viewport with SVG overlay */}
+                                    <div className="modal-image-viewport">
+                                        <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, maxWidth: '100%' }}>
+                                            <img
+                                                src={selectedFrame.dataUrl}
+                                                alt={`Frame ${selectedFrame.frameIndex}`}
+                                                className="modal-full-img"
+                                            />
+                                            {selectedFrame.isDetecting && <ScanningOverlay />}
+                                            {selectedFrame.detection && (
+                                                <FrameDetectionOverlay
+                                                    detection={selectedFrame.detection}
+                                                    showPolygons={showPolygons}
+                                                    showBboxes={showBboxes}
+                                                    showLabels={showLabels}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Defect Detection Controls & Details */}
+                                    <div style={{ padding: '4px 16px 16px' }}>
+                                        <DetectionControlsPanel
+                                            detection={selectedFrame.detection}
+                                            isDetecting={selectedFrame.isDetecting}
+                                            detectionError={selectedFrame.detectionError}
+                                            showPolygons={showPolygons}
+                                            showBboxes={showBboxes}
+                                            showLabels={showLabels}
+                                            onTogglePolygons={() => setShowPolygons(p => !p)}
+                                            onToggleBboxes={() => setShowBboxes(b => !b)}
+                                            onToggleLabels={() => setShowLabels(l => !l)}
+                                            onDetect={() => handleDetectFrame(selectedFrame)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1283,6 +1703,28 @@ const Home: React.FC = () => {
             color: #dc2626;
         }
 
+        /* AI Detect Toolbar Button */
+        .toolbar-btn.ai-detect {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .toolbar-btn.ai-detect:disabled {
+            opacity: 0.75;
+            cursor: wait;
+        }
+
+        .btn-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
         /* 2 Columns on Mobile, scalable on desktop */
         .responsive-frames-grid {
             display: grid;
@@ -1327,6 +1769,7 @@ const Home: React.FC = () => {
             font-weight: 700;
             font-family: monospace;
             backdrop-filter: blur(4px);
+            z-index: 4;
         }
 
         .frame-time-badge {
@@ -1340,6 +1783,64 @@ const Home: React.FC = () => {
             font-size: 9px;
             font-weight: 700;
             font-family: monospace;
+            z-index: 4;
+        }
+
+        /* Frame Card Detection Badges */
+        .frame-card-badge {
+            position: absolute;
+            bottom: 6px;
+            left: 6px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            z-index: 5;
+        }
+
+        .frame-card-badge.detecting {
+            background: rgba(245, 158, 11, 0.95);
+            color: #ffffff;
+        }
+
+        .frame-card-badge.success {
+            background: rgba(16, 185, 129, 0.95);
+            color: #ffffff;
+        }
+
+        .frame-card-badge.error {
+            background: rgba(239, 68, 68, 0.95);
+            color: #ffffff;
+        }
+
+        .pulse-mini {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #ffffff;
+            animation: blink 1s infinite;
+        }
+
+        .frame-quick-detect-btn {
+            padding: 3px 7px;
+            border-radius: 6px;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+
+        .frame-quick-detect-btn:hover {
+            background: #d1fae5;
+            border-color: #6ee7b7;
         }
 
         .frame-info-bar {
@@ -1358,6 +1859,73 @@ const Home: React.FC = () => {
         .frame-info-dim {
             font-size: 10px;
             color: #64748b;
+        }
+
+        /* Overall Detected Zones Banner */
+        .overall-zones-banner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: #ffffff;
+            border: 1.5px solid #a7f3d0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+        }
+
+        /* Frame Card Zones Section */
+        .frame-card-zones-section {
+            padding: 0 10px 8px;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .frame-card-zones-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            width: 100%;
+        }
+
+        .frame-zone-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .zone-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .frame-zone-status {
+            font-size: 9.5px;
+            font-weight: 600;
+        }
+
+        .frame-zone-status.detecting {
+            color: #d97706;
+        }
+
+        .frame-zone-status.empty {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .frame-zone-status.pending {
+            color: #94a3b8;
         }
 
         /* Empty State */
@@ -1437,6 +2005,19 @@ const Home: React.FC = () => {
             box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);
         }
 
+        .modal-dialog.inspect {
+            max-width: 680px;
+            max-height: 92dvh;
+        }
+
+        .modal-inspect-body {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            overscroll-behavior: contain;
+        }
+
         .modal-header {
             display: flex;
             align-items: center;
@@ -1494,20 +2075,20 @@ const Home: React.FC = () => {
         }
 
         .modal-image-viewport {
-            flex: 1;
-            overflow: auto;
             background: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px;
+            padding: 12px;
+            min-height: 220px;
         }
 
         .modal-full-img {
             max-width: 100%;
-            max-height: 65vh;
+            max-height: 52vh;
             object-fit: contain;
             border-radius: 6px;
+            display: block;
         }
 
         .modal-player-viewport {
