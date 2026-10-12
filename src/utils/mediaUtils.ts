@@ -119,7 +119,7 @@ export const isIOSDevice = (): boolean => {
 };
 
 // ─── UTILITY: DOWNLOAD FRAME WITH ACTIVE DEFECT ANNOTATIONS ───────────────────
-import { getZoneTheme, DetectApiResponse } from '../services/defectDetectionApi';
+import { getZoneTheme, DetectApiResponse, isDefectFound } from '../services/defectDetectionApi';
 
 export interface DownloadAnnotationOptions {
     showPolygons: boolean;
@@ -139,9 +139,14 @@ export async function downloadAnnotatedFrame(
 ): Promise<void> {
     const hasLayers = options.showPolygons || options.showBboxes || options.showLabels;
     const hasZones = frame.detection?.zones && Object.keys(frame.detection.zones).length > 0;
+    const defectItems = frame.detection?.defect_boxes && frame.detection.defect_boxes.length > 0
+        ? frame.detection.defect_boxes
+        : (frame.detection?.defects || []);
+    const hasDefects = isDefectFound(frame.detection) || defectItems.length > 0;
+    const hasAnnotations = hasZones || hasDefects;
 
     // If no layers active or no detection, download raw image immediately
-    if (!hasLayers || !hasZones) {
+    if (!hasLayers || !hasAnnotations) {
         const link = document.createElement('a');
         link.href = frame.dataUrl;
         link.download = `defect_frame_${frame.frameIndex}.jpg`;
@@ -181,9 +186,9 @@ export async function downloadAnnotatedFrame(
         const badgeRadius = Math.max(6, Math.round(baseFontSize * 0.22));
         const badgeBorderWidth = Math.max(1.5, Math.round(baseFontSize * 0.06));
 
-        const zones = Object.entries(frame.detection!.zones || {});
+        const zones = Object.entries(frame.detection?.zones || {});
 
-        // 1. Polygons Layer
+        // 1. Polygons Layer (Zones + Defects)
         if (options.showPolygons) {
             for (const [zoneKey, zoneData] of zones) {
                 const theme = getZoneTheme(zoneKey);
@@ -207,9 +212,33 @@ export async function downloadAnnotatedFrame(
                     }
                 }
             }
+
+            if (hasDefects) {
+                for (const defect of defectItems) {
+                    if (defect.polygons && defect.polygons.length > 0) {
+                        for (const poly of defect.polygons) {
+                            if (poly.length < 2) continue;
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.moveTo(poly[0][0], poly[0][1]);
+                            for (let i = 1; i < poly.length; i++) {
+                                ctx.lineTo(poly[i][0], poly[i][1]);
+                            }
+                            ctx.closePath();
+                            ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+                            ctx.fill();
+                            ctx.strokeStyle = '#dc2626';
+                            ctx.lineWidth = strokeWidthPoly;
+                            ctx.lineJoin = 'round';
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    }
+                }
+            }
         }
 
-        // 2. Bounding Boxes Layer
+        // 2. Bounding Boxes Layer (Zones + Defects)
         if (options.showBboxes) {
             for (const [zoneKey, zoneData] of zones) {
                 const theme = getZoneTheme(zoneKey);
@@ -225,9 +254,26 @@ export async function downloadAnnotatedFrame(
                     ctx.restore();
                 }
             }
+
+            if (hasDefects) {
+                for (const defect of defectItems) {
+                    if (defect.bbox) {
+                        const [dx1, dy1, dx2, dy2] = defect.bbox;
+                        const boxW = Math.max(0, dx2 - dx1);
+                        const boxH = Math.max(0, dy2 - dy1);
+                        ctx.save();
+                        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+                        ctx.fillRect(dx1, dy1, boxW, boxH);
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = Math.max(4.5, Math.round(width * 0.0055));
+                        ctx.strokeRect(dx1, dy1, boxW, boxH);
+                        ctx.restore();
+                    }
+                }
+            }
         }
 
-        // 3. Labels & Confidence Badges Layer
+        // 3. Labels & Confidence Badges Layer (Zones + Defects)
         if (options.showLabels) {
             for (const [zoneKey, zoneData] of zones) {
                 const theme = getZoneTheme(zoneKey);
@@ -262,6 +308,43 @@ export async function downloadAnnotatedFrame(
                     ctx.textBaseline = 'middle';
                     ctx.fillText(labelText, badgeX + badgePaddingX, badgeY + Math.round(badgeH * 0.52));
                     ctx.restore();
+                }
+            }
+
+            if (hasDefects) {
+                for (const defect of defectItems) {
+                    if (defect.bbox) {
+                        const [dx1, dy1] = defect.bbox;
+                        const confStr = defect.confidence !== undefined ? ` ${(defect.confidence * 100).toFixed(1)}%` : '';
+                        const labelText = `⚠️ DEFECT${confStr}`;
+
+                        ctx.save();
+                        ctx.font = `800 ${baseFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;
+                        const textWidth = ctx.measureText(labelText).width;
+                        const badgeW = Math.round(textWidth + badgePaddingX * 2);
+
+                        const badgeY = dy1 > badgeH + 8 ? dy1 - badgeH - 8 : Math.min(height - badgeH - 4, dy1 + 8);
+                        const badgeX = Math.max(4, Math.min(width - badgeW - 4, dx1));
+
+                        ctx.fillStyle = '#ef4444';
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = badgeBorderWidth;
+
+                        if (typeof ctx.roundRect === 'function') {
+                            ctx.beginPath();
+                            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeRadius);
+                            ctx.fill();
+                            ctx.stroke();
+                        } else {
+                            ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+                            ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
+                        }
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(labelText, badgeX + badgePaddingX, badgeY + Math.round(badgeH * 0.52));
+                        ctx.restore();
+                    }
                 }
             }
         }

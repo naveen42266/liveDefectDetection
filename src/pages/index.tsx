@@ -3,6 +3,7 @@ import {
     detectAreaDefects,
     DetectApiResponse,
     getZoneTheme,
+    isDefectFound,
 } from '../services/defectDetectionApi';
 import {
     FrameDetectionOverlay,
@@ -627,6 +628,30 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                     flexDirection: 'column',
                     gap: 8,
                 }}>
+                    {/* Defect Found Alert Banner in Live Viewfinder */}
+                    {latestDetection && isDefectFound(latestDetection) && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: 10,
+                            background: '#fef2f2',
+                            border: '1.5px solid #ef4444',
+                            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <span style={{ fontSize: 16 }}>⚠️</span>
+                                <span style={{ fontSize: 13, fontWeight: 900, color: '#b91c1c', letterSpacing: '0.03em' }}>
+                                    DEFECT FOUND: YES
+                                </span>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: 6 }}>
+                                Bounding Box Added
+                            </span>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{
@@ -785,6 +810,11 @@ const Home: React.FC = () => {
             f.detection?.detected_zones?.forEach(z => set.add(z));
         });
         return Array.from(set);
+    }, [capturedFrames]);
+
+    // Count how many frames have defects detected
+    const defectFramesCount = useMemo(() => {
+        return capturedFrames.filter(f => isDefectFound(f.detection)).length;
     }, [capturedFrames]);
 
     // Flipbook player timer for 2 FPS playback
@@ -1057,14 +1087,34 @@ const Home: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* ═══ OVERALL DETECTED ZONES SUMMARY BANNER ═══ */}
-                            {uniqueDetectedZones.length > 0 && (
+                            {/* ═══ OVERALL DETECTED ZONES & DEFECTS SUMMARY BANNER ═══ */}
+                            {(uniqueDetectedZones.length > 0 || defectFramesCount > 0) && (
                                 <div className="overall-zones-banner">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-                                        <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
-                                            DETECTED ZONES IN CAPTURE ({uniqueDetectedZones.length}):
-                                        </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                                            <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', letterSpacing: '0.02em' }}>
+                                                DETECTED ZONES IN CAPTURE ({uniqueDetectedZones.length}):
+                                            </span>
+                                        </div>
+
+                                        {defectFramesCount > 0 && (
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                padding: '4px 10px',
+                                                borderRadius: 8,
+                                                background: '#fef2f2',
+                                                border: '1.5px solid #ef4444',
+                                                color: '#b91c1c',
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                            }}>
+                                                <span>⚠️</span>
+                                                <span>{defectFramesCount} FRAME{defectFramesCount > 1 ? 'S' : ''} WITH DEFECTS</span>
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                         {uniqueDetectedZones.map(zone => {
@@ -1129,9 +1179,15 @@ const Home: React.FC = () => {
                                                     </div>
                                                 )}
                                                 {frame.detection && (
-                                                    <div className="frame-card-badge success">
-                                                        ✓ {detectedZones.length} Zones
-                                                    </div>
+                                                    isDefectFound(frame.detection) ? (
+                                                        <div className="frame-card-badge error" style={{ background: '#ef4444', color: '#ffffff', fontWeight: 800, boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)' }}>
+                                                            ⚠️ Defect Found
+                                                        </div>
+                                                    ) : (
+                                                        <div className="frame-card-badge success">
+                                                            ✓ {detectedZones.length} Zones
+                                                        </div>
+                                                    )
                                                 )}
                                                 {frame.detectionError && (
                                                     <div className="frame-card-badge error">
@@ -1166,6 +1222,23 @@ const Home: React.FC = () => {
 
                                             {/* ═══ DETECTED ZONES KEY DISPLAY ON EACH FRAME CARD ═══ */}
                                             <div className="frame-card-zones-section">
+                                                {isDefectFound(frame.detection) && (
+                                                    <div style={{ marginBottom: 6 }}>
+                                                        <span
+                                                            className="frame-zone-tag"
+                                                            style={{
+                                                                background: '#fef2f2',
+                                                                borderColor: '#ef4444',
+                                                                color: '#b91c1c',
+                                                                fontWeight: 800,
+                                                                fontSize: 12,
+                                                            }}
+                                                        >
+                                                            <span className="zone-dot" style={{ background: '#ef4444' }} />
+                                                            ⚠️ Defect Found
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 {detectedZones.length > 0 ? (
                                                     <div className="frame-card-zones-list">
                                                         {detectedZones.map((zone) => {
@@ -1250,6 +1323,13 @@ const Home: React.FC = () => {
                                         <span className="modal-subtitle">
                                             {selectedFrame.timeString} • {selectedFrame.width}×{selectedFrame.height}px
                                             {selectedFrame.detection?.route && ` • Route: ${selectedFrame.detection.route}`}
+                                            {selectedFrame.detection && (
+                                                isDefectFound(selectedFrame.detection) ? (
+                                                    <span style={{ color: '#ef4444', fontWeight: 800 }}> • ⚠️ Defect: Yes</span>
+                                                ) : (
+                                                    <span style={{ color: '#10b981', fontWeight: 700 }}> • Defect: None</span>
+                                                )
+                                            )}
                                         </span>
                                     </div>
                                     <div className="modal-header-actions">
@@ -1367,6 +1447,13 @@ const Home: React.FC = () => {
                                             {fullScreenImageFrame.width}×{fullScreenImageFrame.height}px
                                             {fullScreenImageFrame.detection?.route && ` • Route: ${fullScreenImageFrame.detection.route}`}
                                             {fullScreenImageFrame.detection?.detected_zones && ` • (${fullScreenImageFrame.detection.detected_zones.length} Zones)`}
+                                            {fullScreenImageFrame.detection && (
+                                                isDefectFound(fullScreenImageFrame.detection) ? (
+                                                    <span style={{ color: '#ef4444', fontWeight: 800 }}> • ⚠️ Defect: Yes</span>
+                                                ) : (
+                                                    <span style={{ color: '#10b981', fontWeight: 700 }}> • Defect: None</span>
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

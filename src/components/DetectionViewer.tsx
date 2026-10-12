@@ -1,7 +1,7 @@
-import React from 'react';
 import {
     DetectApiResponse,
     getZoneTheme,
+    isDefectFound,
 } from '../services/defectDetectionApi';
 
 interface FrameDetectionOverlayProps {
@@ -17,7 +17,10 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
     showBboxes,
     showLabels,
 }) => {
-    if (!detection.zones || !detection.image_size) return null;
+    if (!detection.image_size) return null;
+    const hasZones = detection.zones && Object.keys(detection.zones).length > 0;
+    const hasDefects = isDefectFound(detection);
+    if (!hasZones && !hasDefects) return null;
 
     const { width, height } = detection.image_size;
 
@@ -29,6 +32,8 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
     const strokeWidthBox = Math.max(3, Math.round(width * 0.0035));
     const badgeRadius = Math.max(6, Math.round(baseFontSize * 0.22));
     const badgeBorderWidth = Math.max(1.5, Math.round(baseFontSize * 0.06));
+
+    const defectItems = detection.defect_boxes || detection.defects || [];
 
     return (
         <svg
@@ -42,78 +47,152 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
                 pointerEvents: 'none',
             }}
         >
-            {Object.entries(detection.zones).map(([zoneKey, zoneData]) => {
-                const theme = getZoneTheme(zoneKey);
-                const [x1, y1, x2, y2] = zoneData.bbox || [0, 0, 0, 0];
-                const boxW = Math.max(0, x2 - x1);
-                const boxH = Math.max(0, y2 - y1);
-                const confPercent = (zoneData.confidence * 100).toFixed(1);
-                const labelText = `${theme.name} ${confPercent}%`;
-                const badgeW = Math.round(labelText.length * (baseFontSize * 0.64) + badgePaddingX * 2);
+            {/* 1. Normal Detected Zones (Tread, Tread Shoulder, Sidewall, Bead) */}
+            {detection.zones &&
+                Object.entries(detection.zones).map(([zoneKey, zoneData]) => {
+                    const theme = getZoneTheme(zoneKey);
+                    const [x1, y1, x2, y2] = zoneData.bbox || [0, 0, 0, 0];
+                    const boxW = Math.max(0, x2 - x1);
+                    const boxH = Math.max(0, y2 - y1);
+                    const confPercent = (zoneData.confidence * 100).toFixed(1);
+                    const labelText = `${theme.name} ${confPercent}%`;
+                    const badgeW = Math.round(labelText.length * (baseFontSize * 0.64) + badgePaddingX * 2);
 
-                // Keep badge inside canvas and above bounding box if space permits
-                const badgeY = y1 > badgeH + 8 ? y1 - badgeH - 8 : Math.min(height - badgeH - 4, y1 + 8);
-                const badgeX = Math.max(4, Math.min(width - badgeW - 4, x1));
+                    // Keep badge inside canvas and above bounding box if space permits
+                    const badgeY = y1 > badgeH + 8 ? y1 - badgeH - 8 : Math.min(height - badgeH - 4, y1 + 8);
+                    const badgeX = Math.max(4, Math.min(width - badgeW - 4, x1));
 
-                return (
-                    <g key={zoneKey} className={`zone-${zoneKey}`}>
-                        {/* 1. Polygons */}
-                        {showPolygons &&
-                            zoneData.polygons?.map((poly, polyIdx) => (
-                                <polygon
-                                    key={`poly-${polyIdx}`}
-                                    points={poly.map(([px, py]) => `${px},${py}`).join(' ')}
-                                    fill={theme.fill}
-                                    stroke={theme.stroke}
-                                    strokeWidth={strokeWidthPoly}
-                                    strokeLinejoin="round"
-                                />
-                            ))}
+                    return (
+                        <g key={zoneKey} className={`zone-${zoneKey}`}>
+                            {/* Polygons */}
+                            {showPolygons &&
+                                zoneData.polygons?.map((poly, polyIdx) => (
+                                    <polygon
+                                        key={`poly-${polyIdx}`}
+                                        points={poly.map(([px, py]) => `${px},${py}`).join(' ')}
+                                        fill={theme.fill}
+                                        stroke={theme.stroke}
+                                        strokeWidth={strokeWidthPoly}
+                                        strokeLinejoin="round"
+                                    />
+                                ))}
 
-                        {/* 2. Bounding Box */}
-                        {showBboxes && zoneData.bbox && (
-                            <rect
-                                x={x1}
-                                y={y1}
-                                width={boxW}
-                                height={boxH}
-                                fill="none"
-                                stroke={theme.stroke}
-                                strokeWidth={strokeWidthBox}
-                                strokeDasharray={`${strokeWidthBox * 3} ${strokeWidthBox * 1.5}`}
-                                rx={badgeRadius}
-                            />
-                        )}
-
-                        {/* 3. Zone Label & Confidence Badge (Large, crisp, high-visibility) */}
-                        {showLabels && zoneData.bbox && (
-                            <g>
+                            {/* Bounding Box */}
+                            {showBboxes && zoneData.bbox && (
                                 <rect
-                                    x={badgeX}
-                                    y={badgeY}
-                                    width={badgeW}
-                                    height={badgeH}
-                                    fill={theme.stroke}
-                                    stroke="#ffffff"
-                                    strokeWidth={badgeBorderWidth}
+                                    x={x1}
+                                    y={y1}
+                                    width={boxW}
+                                    height={boxH}
+                                    fill="none"
+                                    stroke={theme.stroke}
+                                    strokeWidth={strokeWidthBox}
+                                    strokeDasharray={`${strokeWidthBox * 3} ${strokeWidthBox * 1.5}`}
                                     rx={badgeRadius}
                                 />
-                                <text
-                                    x={badgeX + badgePaddingX}
-                                    y={badgeY + Math.round(badgeH * 0.72)}
-                                    fill="#ffffff"
-                                    fontSize={baseFontSize}
-                                    fontWeight="800"
-                                    fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                                    letterSpacing="0.02em"
-                                >
-                                    {labelText}
-                                </text>
-                            </g>
-                        )}
-                    </g>
-                );
-            })}
+                            )}
+
+                            {/* Zone Label & Confidence Badge */}
+                            {showLabels && zoneData.bbox && (
+                                <g>
+                                    <rect
+                                        x={badgeX}
+                                        y={badgeY}
+                                        width={badgeW}
+                                        height={badgeH}
+                                        fill={theme.stroke}
+                                        stroke="#ffffff"
+                                        strokeWidth={badgeBorderWidth}
+                                        rx={badgeRadius}
+                                    />
+                                    <text
+                                        x={badgeX + badgePaddingX}
+                                        y={badgeY + Math.round(badgeH * 0.72)}
+                                        fill="#ffffff"
+                                        fontSize={baseFontSize}
+                                        fontWeight="800"
+                                        fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                                        letterSpacing="0.02em"
+                                    >
+                                        {labelText}
+                                    </text>
+                                </g>
+                            )}
+                        </g>
+                    );
+                })}
+
+            {/* 2. Defect Found Bounding Boxes & Polygons (High-Visibility Red Alert Layer) */}
+            {hasDefects &&
+                defectItems.map((defectItem, defectIdx) => {
+                    const [dx1, dy1, dx2, dy2] = defectItem.bbox || [0, 0, 0, 0];
+                    const dBoxW = Math.max(0, dx2 - dx1);
+                    const dBoxH = Math.max(0, dy2 - dy1);
+                    const defectConf = defectItem.confidence;
+                    const defectConfStr = defectConf !== undefined ? ` ${(defectConf * 100).toFixed(1)}%` : '';
+                    const defectLabel = `⚠️ DEFECT${defectConfStr}`;
+                    const defectBadgeW = Math.round(defectLabel.length * (baseFontSize * 0.65) + badgePaddingX * 2);
+                    const defectBadgeY = dy1 > badgeH + 8 ? dy1 - badgeH - 8 : Math.min(height - badgeH - 4, dy1 + 8);
+                    const defectBadgeX = Math.max(4, Math.min(width - defectBadgeW - 4, dx1));
+
+                    return (
+                        <g key={`defect-box-${defectIdx}`} className="defect-overlay-item">
+                            {/* Defect Polygons */}
+                            {showPolygons &&
+                                defectItem.polygons?.map((poly, pIdx) => (
+                                    <polygon
+                                        key={`defect-poly-${pIdx}`}
+                                        points={poly.map(([px, py]) => `${px},${py}`).join(' ')}
+                                        fill="rgba(239, 68, 68, 0.35)"
+                                        stroke="#dc2626"
+                                        strokeWidth={strokeWidthPoly}
+                                        strokeLinejoin="round"
+                                    />
+                                ))}
+
+                            {/* Defect Bounding Box (Prominent Red) */}
+                            {showBboxes && defectItem.bbox && (
+                                <rect
+                                    x={dx1}
+                                    y={dy1}
+                                    width={dBoxW}
+                                    height={dBoxH}
+                                    fill="rgba(239, 68, 68, 0.12)"
+                                    stroke="#ef4444"
+                                    strokeWidth={Math.max(4.5, Math.round(width * 0.0055))}
+                                    rx={badgeRadius}
+                                />
+                            )}
+
+                            {/* Defect Warning Badge */}
+                            {showLabels && defectItem.bbox && (
+                                <g>
+                                    <rect
+                                        x={defectBadgeX}
+                                        y={defectBadgeY}
+                                        width={defectBadgeW}
+                                        height={badgeH}
+                                        fill="#ef4444"
+                                        stroke="#ffffff"
+                                        strokeWidth={badgeBorderWidth}
+                                        rx={badgeRadius}
+                                    />
+                                    <text
+                                        x={defectBadgeX + badgePaddingX}
+                                        y={defectBadgeY + Math.round(badgeH * 0.72)}
+                                        fill="#ffffff"
+                                        fontSize={baseFontSize}
+                                        fontWeight="900"
+                                        fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                                        letterSpacing="0.02em"
+                                    >
+                                        {defectLabel}
+                                    </text>
+                                </g>
+                            )}
+                        </g>
+                    );
+                })}
         </svg>
     );
 };
@@ -385,6 +464,40 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                     >
                         {zonesList.length} Zones Detected
                     </span>
+
+                    {/* Defect Found Status Badge */}
+                    {isDefectFound(detection) ? (
+                        <span
+                            style={{
+                                fontSize: '12px',
+                                fontWeight: 800,
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #f87171',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                            }}
+                        >
+                            ⚠️ DEFECT FOUND: YES
+                        </span>
+                    ) : detection.defect_found !== undefined ? (
+                        <span
+                            style={{
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                background: '#ecfdf5',
+                                color: '#047857',
+                                border: '1px solid #a7f3d0',
+                            }}
+                        >
+                            ✓ DEFECT FOUND: NO
+                        </span>
+                    ) : null}
                 </div>
 
                 {/* Layer Toggle Checkboxes */}
@@ -418,6 +531,79 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                     </label>
                 </div>
             </div>
+
+            {/* ═══ DEFECT ALERT BANNER & DEFECT REGIONS LIST ═══ */}
+            {isDefectFound(detection) && (
+                <div
+                    style={{
+                        background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)',
+                        border: '2px solid #ef4444',
+                        borderRadius: '12px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        boxShadow: '0 4px 14px rgba(239, 68, 68, 0.15)',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px' }}>🚨</span>
+                            <span style={{ fontSize: '15px', fontWeight: 900, color: '#991b1b', letterSpacing: '0.02em' }}>
+                                DEFECT FOUND: YES
+                            </span>
+                        </div>
+                        <span
+                            style={{
+                                background: '#ef4444',
+                                color: '#ffffff',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                padding: '3px 10px',
+                                borderRadius: '20px',
+                                letterSpacing: '0.04em',
+                            }}
+                        >
+                            {(detection.defect_boxes || detection.defects || []).length || 1} DEFECT REGION(S)
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#b91c1c', lineHeight: 1.4 }}>
+                        Tire defect detected. Red bounding box and defect outlines have been mapped onto the frame image above.
+                    </div>
+
+                    {(detection.defect_boxes || detection.defects || []).map((db, idx) => (
+                        <div
+                            key={`db-card-${idx}`}
+                            style={{
+                                background: '#ffffff',
+                                border: '1px solid #fecaca',
+                                borderRadius: '8px',
+                                padding: '10px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontSize: '12px',
+                                gap: '8px',
+                                flexWrap: 'wrap',
+                            }}
+                        >
+                            <span style={{ fontWeight: 800, color: '#7f1d1d' }}>
+                                Defect #{idx + 1}
+                            </span>
+                            {db.confidence !== undefined && (
+                                <span style={{ color: '#dc2626', fontWeight: 800 }}>
+                                    Confidence: {(db.confidence * 100).toFixed(1)}%
+                                </span>
+                            )}
+                            {db.bbox && (
+                                <span style={{ fontFamily: 'monospace', color: '#64748b', fontSize: '11px', background: '#fef2f2', padding: '2px 6px', borderRadius: '4px' }}>
+                                    BBox: [{db.bbox.join(', ')}]
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Zones Detailed Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

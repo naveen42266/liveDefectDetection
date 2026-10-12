@@ -9,6 +9,18 @@ export interface ZoneDetail {
     polygons: [number, number][][]; // array of polygons, each with [x, y] points
 }
 
+export interface DefectBox {
+    bbox: [number, number, number, number]; // [x1, y1, x2, y2]
+    polygons?: [number, number][][];
+    confidence?: number;
+}
+
+export interface DefectItem {
+    bbox?: [number, number, number, number];
+    polygons?: [number, number][][];
+    confidence?: number;
+}
+
 export interface DetectApiResponse {
     success: boolean;
     frame_id?: string;
@@ -20,9 +32,33 @@ export interface DetectApiResponse {
     };
     detected_zones?: string[];
     zones?: Record<string, ZoneDetail>;
+    defect_found?: string | boolean; // e.g. "Yes" | "No"
+    defect_boxes?: DefectBox[];
+    defects?: DefectItem[];
     inference_time_ms?: number;
     total_time_ms?: number;
     error?: string;
+}
+
+/**
+ * Helper to determine whether a defect was detected in the frame
+ */
+export function isDefectFound(detection?: DetectApiResponse | null): boolean {
+    if (!detection) return false;
+    if (typeof detection.defect_found === 'string') {
+        return detection.defect_found.toLowerCase() === 'yes';
+    }
+    if (typeof detection.defect_found === 'boolean') {
+        return detection.defect_found;
+    }
+    // Also check if defect_boxes or defects array has entries
+    if (detection.defect_boxes && detection.defect_boxes.length > 0) {
+        return true;
+    }
+    if (detection.defects && detection.defects.length > 0) {
+        return true;
+    }
+    return false;
 }
 
 /**
