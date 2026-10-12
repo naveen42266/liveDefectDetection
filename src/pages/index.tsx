@@ -9,6 +9,7 @@ import {
     ScanningOverlay,
     DetectionControlsPanel,
 } from '../components/DetectionViewer';
+import { downloadAnnotatedFrame } from '../utils/mediaUtils';
 
 // ─── CAMERA METRICS & FRAME TYPES ───────────────────────────────────────────
 export interface CameraMetrics {
@@ -864,22 +865,20 @@ const Home: React.FC = () => {
         setIsBatchDetecting(false);
     };
 
-    // Download single frame as JPEG
-    const downloadFrame = (frame: CapturedFrame) => {
-        const link = document.createElement('a');
-        link.href = frame.dataUrl;
-        link.download = `defect_frame_${frame.frameIndex}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    // Download single frame as JPEG with active defect annotations
+    const downloadFrame = (
+        frame: CapturedFrame,
+        customOptions?: { showPolygons: boolean; showBboxes: boolean; showLabels: boolean }
+    ) => {
+        downloadAnnotatedFrame(frame, customOptions || { showPolygons, showBboxes, showLabels });
     };
 
-    // Download all frames
+    // Download all frames with active defect annotations
     const downloadAllFrames = () => {
         capturedFrames.forEach((frame, idx) => {
             setTimeout(() => {
-                downloadFrame(frame);
-            }, idx * 100);
+                downloadFrame(frame, { showPolygons, showBboxes, showLabels });
+            }, idx * 150);
         });
     };
 
@@ -1358,50 +1357,30 @@ const Home: React.FC = () => {
                                 onClick={(e) => e.stopPropagation()}
                                 className="modal-dialog full-image-dialog"
                             >
-                                <div className="modal-header full-image-header">
-                                    <div>
-                                        <h4 className="modal-title full-image-title">
-                                            Frame #{fullScreenImageFrame.frameIndex} • Full Image View
+                                {/* Row 1: Header bar with Title, Subtitle, and Action buttons */}
+                                <div className="full-image-header-bar">
+                                    <div style={{ minWidth: 0, flex: 1, paddingRight: 8 }}>
+                                        <h4 className="full-image-title">
+                                            Frame #{fullScreenImageFrame.frameIndex} Full View
                                         </h4>
-                                        <span className="modal-subtitle">
+                                        <div className="full-image-subtitle">
                                             {fullScreenImageFrame.width}×{fullScreenImageFrame.height}px
                                             {fullScreenImageFrame.detection?.route && ` • Route: ${fullScreenImageFrame.detection.route}`}
                                             {fullScreenImageFrame.detection?.detected_zones && ` • (${fullScreenImageFrame.detection.detected_zones.length} Zones)`}
-                                        </span>
+                                        </div>
                                     </div>
-                                    <div className="modal-header-actions">
-                                        <label className="full-toggle-lbl">
-                                            <input
-                                                type="checkbox"
-                                                checked={showPolygons}
-                                                onChange={() => setShowPolygons(p => !p)}
-                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
-                                            />
-                                            Polygons
-                                        </label>
-                                        <label className="full-toggle-lbl">
-                                            <input
-                                                type="checkbox"
-                                                checked={showBboxes}
-                                                onChange={() => setShowBboxes(b => !b)}
-                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
-                                            />
-                                            Boxes
-                                        </label>
-                                        <label className="full-toggle-lbl">
-                                            <input
-                                                type="checkbox"
-                                                checked={showLabels}
-                                                onChange={() => setShowLabels(l => !l)}
-                                                style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
-                                            />
-                                            Labels
-                                        </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                         <button
-                                            onClick={() => downloadFrame(fullScreenImageFrame)}
-                                            className="modal-action-btn"
+                                            onClick={() => downloadFrame(fullScreenImageFrame, { showPolygons, showBboxes, showLabels })}
+                                            className="full-download-btn"
+                                            title="Download frame with active defect annotations"
                                         >
-                                            Download
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                <polyline points="7 10 12 15 17 10" />
+                                                <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                            <span>Download</span>
                                         </button>
                                         <button
                                             onClick={() => setFullScreenImageFrame(null)}
@@ -1413,8 +1392,43 @@ const Home: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* Row 2: Dedicated Layer Toggles Toolbar */}
+                                <div className="full-image-toolbar">
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Layers:
+                                    </span>
+                                    <label className="full-toggle-chip">
+                                        <input
+                                            type="checkbox"
+                                            checked={showPolygons}
+                                            onChange={() => setShowPolygons(p => !p)}
+                                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                        />
+                                        <span>Polygons</span>
+                                    </label>
+                                    <label className="full-toggle-chip">
+                                        <input
+                                            type="checkbox"
+                                            checked={showBboxes}
+                                            onChange={() => setShowBboxes(b => !b)}
+                                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                        />
+                                        <span>Boxes</span>
+                                    </label>
+                                    <label className="full-toggle-chip">
+                                        <input
+                                            type="checkbox"
+                                            checked={showLabels}
+                                            onChange={() => setShowLabels(l => !l)}
+                                            style={{ accentColor: '#10b981', cursor: 'pointer', width: 14, height: 14 }}
+                                        />
+                                        <span>Labels</span>
+                                    </label>
+                                </div>
+
+                                {/* Row 3: Centered Image Viewport with SVG overlay */}
                                 <div className="full-image-viewport">
-                                    <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, maxWidth: '100%', maxHeight: '100%' }}>
+                                    <div className="full-image-wrapper">
                                         <img
                                             src={fullScreenImageFrame.dataUrl}
                                             alt={`Frame ${fullScreenImageFrame.frameIndex} full view`}
@@ -2109,15 +2123,20 @@ const Home: React.FC = () => {
 
         .modal-dialog.inspect {
             max-width: 660px;
-            max-height: 90dvh;
+            height: 92dvh;
+            max-height: 92dvh;
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-inspect-body {
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
 
         .modal-header {
@@ -2126,6 +2145,7 @@ const Home: React.FC = () => {
             justify-content: space-between;
             padding: 12px 16px;
             border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
         }
 
         .modal-title {
@@ -2149,6 +2169,7 @@ const Home: React.FC = () => {
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .modal-action-btn {
@@ -2181,8 +2202,11 @@ const Home: React.FC = () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 12px;
-            max-height: 30vh;
+            padding: 10px 14px;
+            height: 250px;
+            min-height: 220px;
+            max-height: 33vh;
+            flex-shrink: 0; /* CRITICAL: Never let flexbox squish the frame image when multiple defects exist */
             overflow: hidden;
             position: relative;
             cursor: pointer;
@@ -2192,8 +2216,8 @@ const Home: React.FC = () => {
 
         .modal-full-img {
             max-width: 100%;
-            max-height: 28vh;
-            height: auto;
+            height: 100%;
+            max-height: 230px;
             object-fit: contain;
             border-radius: 8px;
             display: block;
@@ -2228,62 +2252,141 @@ const Home: React.FC = () => {
         /* Full-Size Separate Image Dialog */
         .modal-backdrop.full-image-backdrop {
             z-index: 150;
-            background: rgba(2, 6, 23, 0.94);
+            background: rgba(2, 6, 23, 0.95);
             padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .modal-dialog.full-image-dialog {
-            max-width: 95vw;
-            max-height: 95dvh;
-            background: #0b1120;
+            width: 100%;
+            max-width: 680px;
+            height: 92dvh;
+            max-height: 92dvh;
+            background: #090d16;
             border: 1px solid #1e293b;
             display: flex;
             flex-direction: column;
-            border-radius: 16px;
+            border-radius: 18px;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
         }
 
-        .full-image-header {
+        .full-image-header-bar {
             background: #0f172a;
             border-bottom: 1px solid #1e293b;
-            padding: 10px 16px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-shrink: 0;
         }
 
         .full-image-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 800;
             color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .full-toggle-lbl {
+        .full-image-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .full-download-btn {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 8px;
+            background: #10b981;
+            color: #ffffff;
+            border: none;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .full-download-btn:hover {
+            background: #059669;
+        }
+
+        .full-image-toolbar {
+            background: #0b1329;
+            border-bottom: 1px solid #1e293b;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .full-toggle-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
             color: #cbd5e1;
             cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+
+        .full-toggle-chip:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
         }
 
         .full-image-viewport {
             flex: 1;
+            min-height: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: auto;
             padding: 12px;
             background: #020617;
-            min-height: 250px;
+            overflow: hidden;
+        }
+
+        .full-image-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%;
+            max-height: 100%;
+            line-height: 0;
         }
 
         .full-image-elem {
-            max-width: 92vw;
-            max-height: 82dvh;
+            max-width: 100%;
+            max-height: calc(92dvh - 120px);
             width: auto;
             height: auto;
             object-fit: contain;
             border-radius: 8px;
             display: block;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
         }
 
         .modal-player-viewport {
