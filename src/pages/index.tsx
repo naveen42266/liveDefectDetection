@@ -679,7 +679,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             })
                         ) : (
                             <span style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic', padding: '2px 0' }}>
-                                Scanning frame for detected_zones (tread_shoulder, bead, sidewall)...
+                                Scanning frame for detected_zones (tread, tread_shoulder, bead, sidewall)...
                             </span>
                         )}
                     </div>

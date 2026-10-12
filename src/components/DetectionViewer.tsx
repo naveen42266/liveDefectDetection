@@ -290,7 +290,7 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                         AI Defect Detection Available
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                        Send this frame to Radometech TreadVision API to detect tread, bead, and sidewall defect regions.
+                        Send this frame to Radometech TreadVision API to detect tread, tread shoulder, bead, and sidewall defect regions.
                     </div>
                 </div>
                 <button

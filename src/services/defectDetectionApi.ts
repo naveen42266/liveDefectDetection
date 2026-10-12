@@ -79,7 +79,9 @@ export async function detectAreaDefects(frame: Blob | string): Promise<DetectApi
  */
 export function getZoneTheme(zoneName: string) {
     const normalized = zoneName.toLowerCase().trim();
-    if (normalized.includes('tread')) {
+
+    // 1. Tread Shoulder (must be checked before generic 'tread')
+    if (normalized.includes('shoulder') || normalized === 'tread_shoulder' || normalized === 'tread shoulder') {
         return {
             name: 'Tread Shoulder',
             stroke: '#10b981', // emerald-500
@@ -89,6 +91,20 @@ export function getZoneTheme(zoneName: string) {
             border: '#a7f3d0',
         };
     }
+
+    // 2. Pure Tread
+    if (normalized === 'tread' || (normalized.includes('tread') && !normalized.includes('shoulder'))) {
+        return {
+            name: 'Tread',
+            stroke: '#06b6d4', // cyan-500
+            fill: 'rgba(6, 182, 212, 0.28)',
+            badgeBg: '#ecfeff',
+            badgeText: '#0e7490',
+            border: '#a5f3fc',
+        };
+    }
+
+    // 3. Bead
     if (normalized.includes('bead')) {
         return {
             name: 'Bead',
@@ -99,7 +115,9 @@ export function getZoneTheme(zoneName: string) {
             border: '#fde68a',
         };
     }
-    if (normalized.includes('sidewall')) {
+
+    // 4. Sidewall
+    if (normalized.includes('sidewall') || normalized.includes('side_wall')) {
         return {
             name: 'Sidewall',
             stroke: '#6366f1', // indigo-500
@@ -109,12 +127,13 @@ export function getZoneTheme(zoneName: string) {
             border: '#c7d2fe',
         };
     }
+
     return {
         name: zoneName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        stroke: '#0ea5e9', // sky-500
-        fill: 'rgba(14, 165, 233, 0.28)',
-        badgeBg: '#f0f9ff',
-        badgeText: '#0369a1',
-        border: '#bae6fd',
+        stroke: '#8b5cf6', // purple-500
+        fill: 'rgba(139, 92, 246, 0.28)',
+        badgeBg: '#f5f3ff',
+        badgeText: '#6d28d9',
+        border: '#ddd6fe',
     };
 }
