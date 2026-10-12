@@ -213,6 +213,7 @@ export async function downloadAnnotatedFrame(
                 }
             }
 
+
             if (hasDefects) {
                 for (const defect of defectItems) {
                     if (defect.polygons && defect.polygons.length > 0) {
