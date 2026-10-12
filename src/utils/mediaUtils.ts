@@ -225,8 +225,6 @@ export async function downloadAnnotatedFrame(
                                 ctx.lineTo(poly[i][0], poly[i][1]);
                             }
                             ctx.closePath();
-                            ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
-                            ctx.fill();
                             ctx.strokeStyle = '#dc2626';
                             ctx.lineWidth = strokeWidthPoly;
                             ctx.lineJoin = 'round';
@@ -262,8 +260,7 @@ export async function downloadAnnotatedFrame(
                         const boxW = Math.max(0, dx2 - dx1);
                         const boxH = Math.max(0, dy2 - dy1);
                         ctx.save();
-                        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
-                        ctx.fillRect(dx1, dy1, boxW, boxH);
+                        // No bg color/fill inside defect bounding box
                         ctx.strokeStyle = '#ef4444';
                         ctx.lineWidth = Math.max(4.5, Math.round(width * 0.0055));
                         ctx.strokeRect(dx1, dy1, boxW, boxH);
@@ -315,8 +312,8 @@ export async function downloadAnnotatedFrame(
                 for (const defect of defectItems) {
                     if (defect.bbox) {
                         const [dx1, dy1] = defect.bbox;
-                        const confStr = defect.confidence !== undefined ? ` ${(defect.confidence * 100).toFixed(1)}%` : '';
-                        const labelText = `⚠️ DEFECT${confStr}`;
+                        // No confidence score for defect
+                        const labelText = '⚠️ DEFECT';
 
                         ctx.save();
                         ctx.font = `800 ${baseFontSize}px system-ui, -apple-system, BlinkMacSystemFont, sans-serif`;

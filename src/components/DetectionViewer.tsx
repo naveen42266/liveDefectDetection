@@ -128,36 +128,34 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
                     const [dx1, dy1, dx2, dy2] = defectItem.bbox || [0, 0, 0, 0];
                     const dBoxW = Math.max(0, dx2 - dx1);
                     const dBoxH = Math.max(0, dy2 - dy1);
-                    const defectConf = defectItem.confidence;
-                    const defectConfStr = defectConf !== undefined ? ` ${(defectConf * 100).toFixed(1)}%` : '';
-                    const defectLabel = `⚠️ DEFECT${defectConfStr}`;
+                    const defectLabel = '⚠️ DEFECT';
                     const defectBadgeW = Math.round(defectLabel.length * (baseFontSize * 0.65) + badgePaddingX * 2);
                     const defectBadgeY = dy1 > badgeH + 8 ? dy1 - badgeH - 8 : Math.min(height - badgeH - 4, dy1 + 8);
                     const defectBadgeX = Math.max(4, Math.min(width - defectBadgeW - 4, dx1));
 
                     return (
                         <g key={`defect-box-${defectIdx}`} className="defect-overlay-item">
-                            {/* Defect Polygons */}
+                            {/* Defect Polygons (No fill inside) */}
                             {showPolygons &&
                                 defectItem.polygons?.map((poly, pIdx) => (
                                     <polygon
                                         key={`defect-poly-${pIdx}`}
                                         points={poly.map(([px, py]) => `${px},${py}`).join(' ')}
-                                        fill="rgba(239, 68, 68, 0.35)"
+                                        fill="none"
                                         stroke="#dc2626"
                                         strokeWidth={strokeWidthPoly}
                                         strokeLinejoin="round"
                                     />
                                 ))}
 
-                            {/* Defect Bounding Box (Prominent Red) */}
+                            {/* Defect Bounding Box (Prominent Red, No interior color/bg) */}
                             {showBboxes && defectItem.bbox && (
                                 <rect
                                     x={dx1}
                                     y={dy1}
                                     width={dBoxW}
                                     height={dBoxH}
-                                    fill="rgba(239, 68, 68, 0.12)"
+                                    fill="none"
                                     stroke="#ef4444"
                                     strokeWidth={Math.max(4.5, Math.round(width * 0.0055))}
                                     rx={badgeRadius}
@@ -590,11 +588,6 @@ export const DetectionControlsPanel: React.FC<DetectionControlsPanelProps> = ({
                             <span style={{ fontWeight: 800, color: '#7f1d1d' }}>
                                 Defect #{idx + 1}
                             </span>
-                            {db.confidence !== undefined && (
-                                <span style={{ color: '#dc2626', fontWeight: 800 }}>
-                                    Confidence: {(db.confidence * 100).toFixed(1)}%
-                                </span>
-                            )}
                             {db.bbox && (
                                 <span style={{ fontFamily: 'monospace', color: '#64748b', fontSize: '11px', background: '#fef2f2', padding: '2px 6px', borderRadius: '4px' }}>
                                     BBox: [{db.bbox.join(', ')}]
