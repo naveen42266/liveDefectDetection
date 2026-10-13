@@ -10,7 +10,7 @@ import {
     ScanningOverlay,
     DetectionControlsPanel,
 } from '../components/DetectionViewer';
-import { downloadAnnotatedFrame } from '../utils/mediaUtils';
+import { downloadAnnotatedFrame, isIOSDevice } from '../utils/mediaUtils';
 
 // ─── CAMERA METRICS & FRAME TYPES ───────────────────────────────────────────
 export interface CameraMetrics {
@@ -77,6 +77,62 @@ const formatAspectRatio = (width?: number, height?: number, rawAspect?: number):
     if (Math.abs(ratio - 1) < 0.03) return '1:1';
     return ratio < 1 ? `${width}:${height} (${ratio.toFixed(2)})` : `${height}:${width} (${ratio.toFixed(2)})`;
 };
+
+// ─── DEDICATED IOS CAMERA STREAM ACQUISITION ─────────────────────────────────
+async function acquireAdaptiveCameraStreamIOS(): Promise<MediaStream> {
+    // iOS Safari WebKit constraint profiles (strictly portrait dimensions without conflicting frameRate/aspectRatio constraints)
+    const iOSConstraintProfiles: MediaStreamConstraints[] = [
+        // 1. High Definition Portrait (Ideal for modern iPhones)
+        {
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1080 },
+                height: { ideal: 1920 },
+            },
+            audio: false,
+        },
+        // 2. Standard HD Portrait (720x1280)
+        {
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 720 },
+                height: { ideal: 1280 },
+            },
+            audio: false,
+        },
+        // 3. Flexible Environment Camera (WebKit native aspect handling)
+        {
+            video: {
+                facingMode: { ideal: 'environment' },
+            },
+            audio: false,
+        },
+        // 4. Exact environment camera
+        {
+            video: {
+                facingMode: 'environment',
+            },
+            audio: false,
+        },
+        // 5. Basic fallback
+        { video: true, audio: false },
+    ];
+
+    let stream: MediaStream | null = null;
+    let lastError: unknown = null;
+
+    for (const constraints of iOSConstraintProfiles) {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (stream && stream.getVideoTracks().length > 0) break;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    if (!stream) throw lastError || new Error('Failed to acquire iOS camera stream');
+    return stream;
+}
 
 // ─── CAMERA STREAM ACQUISITION ───────────────────────────────────────────────
 async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
@@ -231,6 +287,61 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
     const [isFlashOn, setIsFlashOn] = useState(false);
     const [cameraMetrics, setCameraMetrics] = useState<CameraMetrics>({});
     const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+    const [viewMode, setViewMode] = useState<'fit' | 'fill'>('fit');
+    const [stageBox, setStageBox] = useState<{ width: number; height: number; left: number; top: number } | null>(null);
+
+    // Compute exact geometry matching stage so live video and overlay align 100% identically to Frame Inspection
+    const updateStageBox = useCallback(() => {
+        if (!containerRef.current) return;
+        const cw = containerRef.current.clientWidth;
+        const ch = containerRef.current.clientHeight;
+        if (!cw || !ch) return;
+
+        if (viewMode === 'fill') {
+            setStageBox({ width: cw, height: ch, left: 0, top: 0 });
+            return;
+        }
+
+        // Intrinsic aspect ratio from active detection or live camera stream
+        let aspect = 9 / 16;
+        if (latestDetection?.image_size?.width && latestDetection.image_size.height) {
+            aspect = latestDetection.image_size.width / latestDetection.image_size.height;
+        } else if (videoRef.current?.videoWidth && videoRef.current.videoHeight) {
+            aspect = videoRef.current.videoWidth / videoRef.current.videoHeight;
+        }
+
+        const containerAspect = cw / ch;
+        let width = cw;
+        let height = ch;
+        let left = 0;
+        let top = 0;
+
+        if (containerAspect > aspect) {
+            // Container is wider than media (center horizontally)
+            height = ch;
+            width = Math.round(ch * aspect);
+            left = Math.round((cw - width) / 2);
+            top = 0;
+        } else {
+            // Container is taller than media (center vertically)
+            width = cw;
+            height = Math.round(cw / aspect);
+            top = Math.round((ch - height) / 2);
+            left = 0;
+        }
+
+        setStageBox({ width, height, left, top });
+    }, [viewMode, latestDetection]);
+
+    useEffect(() => {
+        updateStageBox();
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver(() => {
+            updateStageBox();
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, [updateStageBox]);
 
     const captureTimerRef = useRef<number | null>(null);
     const framesCollectorRef = useRef<CapturedFrame[]>([]);
@@ -304,7 +415,9 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 
         const startCamera = async () => {
             try {
-                const stream = await acquireAdaptiveCameraStreamAndroid();
+                const stream = isIOSDevice()
+                    ? await acquireAdaptiveCameraStreamIOS()
+                    : await acquireAdaptiveCameraStreamAndroid();
 
                 if (cancelled) {
                     stream.getTracks().forEach(track => track.stop());
@@ -317,12 +430,17 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
 
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
+                    if (isIOSDevice()) {
+                        videoRef.current.setAttribute('playsinline', 'true');
+                        videoRef.current.setAttribute('webkit-playsinline', 'true');
+                    }
                     videoRef.current.onloadedmetadata = async () => {
                         if (cancelled) return;
                         try {
                             await videoRef.current?.play();
                         } catch { }
                         extractCameraDiagnostics(stream);
+                        updateStageBox();
                         setIsCameraReady(true);
                     };
                 }
@@ -399,27 +517,30 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                 });
         };
 
-        // Sample initial first frame immediately
-        const first = grabFrame(videoRef.current);
-        frameNum = 1;
-        const firstFrame: CapturedFrame = {
-            id: `frame_${Date.now()}_1`,
-            dataUrl: first.dataUrl,
-            frameIndex: 1,
-            timestamp: 0,
-            timeString: '+0ms',
-            width: first.width,
-            height: first.height,
-            isDetecting: true,
-        };
-        framesCollectorRef.current.push(firstFrame);
-        setLiveFrameCount(1);
-        triggerFrameApiDetection(firstFrame);
+        // Sample initial first frame immediately (guarded for ready dimensions)
+        if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+            const first = grabFrame(videoRef.current);
+            frameNum = 1;
+            const firstFrame: CapturedFrame = {
+                id: `frame_${Date.now()}_1`,
+                dataUrl: first.dataUrl,
+                frameIndex: 1,
+                timestamp: 0,
+                timeString: '+0ms',
+                width: first.width,
+                height: first.height,
+                isDetecting: true,
+            };
+            framesCollectorRef.current.push(firstFrame);
+            setLiveFrameCount(1);
+            triggerFrameApiDetection(firstFrame);
+        }
 
         // Capture continuous frames at 2 FPS (500ms intervals) & run API detection
         const intervalMs = Math.round(1000 / 2);
         const timer = window.setInterval(() => {
             if (!videoRef.current) return;
+            if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) return;
 
             frameNum++;
             const now = performance.now();
@@ -554,47 +675,77 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                     </div>
                 )}
 
-                {flashSupported && isCameraReady && (
+                <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 25, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* View Mode Toggle: Exact Fit (Zero Distortion) vs Fill Screen */}
                     <button
-                        onClick={toggleFlash}
+                        onClick={() => setViewMode(m => (m === 'fit' ? 'fill' : 'fit'))}
                         type="button"
-                        title={isFlashOn ? "Turn Flash OFF" : "Turn Flash ON"}
+                        title={viewMode === 'fit' ? "Switch to Fill Screen" : "Switch to Exact Matching (Zero Distortion)"}
                         style={{
-                            position: 'absolute', top: 14, right: 14, zIndex: 25,
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            background: isFlashOn ? 'rgba(254, 240, 138, 0.95)' : 'rgba(255, 255, 255, 0.9)',
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            background: viewMode === 'fit' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(255, 255, 255, 0.9)',
                             backdropFilter: 'blur(8px)',
                             padding: '6px 12px', borderRadius: 20,
-                            border: isFlashOn ? '1px solid #eab308' : '1px solid rgba(0,0,0,0.1)',
-                            color: isFlashOn ? '#854d0e' : '#1e293b',
+                            border: viewMode === 'fit' ? '1px solid #059669' : '1px solid rgba(0,0,0,0.1)',
+                            color: viewMode === 'fit' ? '#ffffff' : '#1e293b',
                             cursor: 'pointer',
-                            boxShadow: isFlashOn ? '0 0 14px rgba(234, 179, 8, 0.35)' : '0 2px 8px rgba(0,0,0,0.08)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                             transition: 'all 0.2s ease',
                         }}
                     >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFlashOn ? '#eab308' : 'none'} stroke={isFlashOn ? '#eab308' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                        </svg>
-                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
-                            {isFlashOn ? 'FLASH ON' : 'FLASH OFF'}
+                        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
+                            {viewMode === 'fit' ? '🎯 EXACT FIT' : '⤢ FILL'}
                         </span>
                     </button>
-                )}
 
-                <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+                    {flashSupported && isCameraReady && (
+                        <button
+                            onClick={toggleFlash}
+                            type="button"
+                            title={isFlashOn ? "Turn Flash OFF" : "Turn Flash ON"}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                background: isFlashOn ? 'rgba(254, 240, 138, 0.95)' : 'rgba(255, 255, 255, 0.9)',
+                                backdropFilter: 'blur(8px)',
+                                padding: '6px 12px', borderRadius: 20,
+                                border: isFlashOn ? '1px solid #eab308' : '1px solid rgba(0,0,0,0.1)',
+                                color: isFlashOn ? '#854d0e' : '#1e293b',
+                                cursor: 'pointer',
+                                boxShadow: isFlashOn ? '0 0 14px rgba(234, 179, 8, 0.35)' : '0 2px 8px rgba(0,0,0,0.08)',
+                                transition: 'all 0.2s ease',
+                            }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill={isFlashOn ? '#eab308' : 'none'} stroke={isFlashOn ? '#eab308' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                            </svg>
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
+                                {isFlashOn ? 'FLASH ON' : 'FLASH OFF'}
+                            </span>
+                        </button>
+                    )}
+                </div>
+
+                {/* ══ STAGE: EXACT MATCHING BETWEEN VIDEO STREAM AND AI OVERLAY ══ */}
+                <div style={{
+                    position: 'absolute',
+                    top: stageBox ? stageBox.top : 0,
+                    left: stageBox ? stageBox.left : 0,
+                    width: stageBox ? stageBox.width : '100%',
+                    height: stageBox ? stageBox.height : '100%',
+                    overflow: 'hidden',
+                    borderRadius: (stageBox && (stageBox.top > 0 || stageBox.left > 0)) ? 8 : 0,
+                    boxShadow: (stageBox && (stageBox.top > 0 || stageBox.left > 0)) ? '0 8px 30px rgba(0,0,0,0.25)' : 'none',
+                }}>
                     <video
                         ref={videoRef}
                         autoPlay
                         playsInline
                         muted
                         style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover',
+                            display: 'block',
+                            objectFit: viewMode === 'fill' ? 'cover' : 'fill',
                         }}
                     />
 
@@ -606,6 +757,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                                 showPolygons={true}
                                 showBboxes={true}
                                 showLabels={true}
+                                preserveAspectRatio={viewMode === 'fill' ? 'xMidYMid slice' : 'xMidYMid meet'}
                             />
                         </div>
                     )}
