@@ -190,7 +190,7 @@ const TyreDepth: React.FC<TyreDepthProps> = ({
                             />
 
                             {/* Tyre Alignment Overlay */}
-                            {hasPermission !== false && (
+                            {hasPermission === true && (
                                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-8">
                                     <div className="w-full max-w-64 aspect-[4/3] border-2 border-dashed border-indigo-400/80 rounded-xl relative flex items-center justify-center bg-indigo-500/5 backdrop-blur-[2px]">
 
