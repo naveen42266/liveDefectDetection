@@ -2356,9 +2356,9 @@ const Home: React.FC = () => {
             align-items: center;
             justify-content: center;
             padding: 10px 14px;
-            height: 250px;
-            min-height: 220px;
-            max-height: 33vh;
+            height: 290px;
+            min-height: 250px;
+            max-height: 38vh;
             flex-shrink: 0; /* CRITICAL: Never let flexbox squish the frame image when multiple defects exist */
             overflow: hidden;
             position: relative;
@@ -2371,7 +2371,7 @@ const Home: React.FC = () => {
             max-width: 100%;
             width: auto;
             height: auto;
-            max-height: 230px;
+            max-height: 270px;
             border-radius: 8px;
             display: block;
             margin: 0 auto;
