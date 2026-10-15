@@ -1354,8 +1354,8 @@ const Home: React.FC = () => {
                                                 {selectedFrame.isDetecting
                                                     ? 'Analyzing...'
                                                     : selectedFrame.detection
-                                                        ? 'Re-Detect'
-                                                        : 'Detect AI'}
+                                                    ? 'Re-Detect'
+                                                    : 'Detect AI'}
                                             </span>
                                         </button>
                                         <button
