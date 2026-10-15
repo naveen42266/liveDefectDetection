@@ -166,8 +166,8 @@ export async function downloadAnnotatedFrame(
         });
 
         const canvas = document.createElement('canvas');
-        const width = img.naturalWidth || frame.width || 1080;
-        const height = img.naturalHeight || frame.height || 1920;
+        const width = img.naturalWidth || frame.width || 720;
+        const height = img.naturalHeight || frame.height || 1280;
         canvas.width = width;
         canvas.height = height;
 
@@ -178,6 +178,11 @@ export async function downloadAnnotatedFrame(
         ctx.drawImage(img, 0, 0, width, height);
 
         // Dynamic coordinate scaling matching FrameDetectionOverlay
+        const apiWidth = frame.detection?.image_size?.width || width;
+        const apiHeight = frame.detection?.image_size?.height || height;
+        const scaleX = width / apiWidth;
+        const scaleY = height / apiHeight;
+
         const baseFontSize = Math.max(30, Math.round(width * 0.036));
         const badgeH = Math.max(44, Math.round(baseFontSize * 1.55));
         const badgePaddingX = Math.max(14, Math.round(baseFontSize * 0.65));
@@ -197,9 +202,9 @@ export async function downloadAnnotatedFrame(
                         if (poly.length < 2) continue;
                         ctx.save();
                         ctx.beginPath();
-                        ctx.moveTo(poly[0][0], poly[0][1]);
+                        ctx.moveTo(poly[0][0] * scaleX, poly[0][1] * scaleY);
                         for (let i = 1; i < poly.length; i++) {
-                            ctx.lineTo(poly[i][0], poly[i][1]);
+                            ctx.lineTo(poly[i][0] * scaleX, poly[i][1] * scaleY);
                         }
                         ctx.closePath();
                         ctx.fillStyle = theme.fill;
@@ -221,9 +226,9 @@ export async function downloadAnnotatedFrame(
                             if (poly.length < 2) continue;
                             ctx.save();
                             ctx.beginPath();
-                            ctx.moveTo(poly[0][0], poly[0][1]);
+                            ctx.moveTo(poly[0][0] * scaleX, poly[0][1] * scaleY);
                             for (let i = 1; i < poly.length; i++) {
-                                ctx.lineTo(poly[i][0], poly[i][1]);
+                                ctx.lineTo(poly[i][0] * scaleX, poly[i][1] * scaleY);
                             }
                             ctx.closePath();
                             ctx.strokeStyle = '#dc2626';
@@ -242,9 +247,11 @@ export async function downloadAnnotatedFrame(
             for (const [zoneKey, zoneData] of zones) {
                 const theme = getZoneTheme(zoneKey);
                 if (zoneData.bbox) {
-                    const [x1, y1, x2, y2] = zoneData.bbox;
-                    const boxW = Math.max(0, x2 - x1);
-                    const boxH = Math.max(0, y2 - y1);
+                    const [rx1, ry1, rx2, ry2] = zoneData.bbox;
+                    const x1 = rx1 * scaleX;
+                    const y1 = ry1 * scaleY;
+                    const boxW = Math.max(0, (rx2 - rx1) * scaleX);
+                    const boxH = Math.max(0, (ry2 - ry1) * scaleY);
                     ctx.save();
                     ctx.strokeStyle = theme.stroke;
                     ctx.lineWidth = strokeWidthBox;
@@ -257,9 +264,11 @@ export async function downloadAnnotatedFrame(
             if (hasDefects) {
                 for (const defect of defectItems) {
                     if (defect.bbox) {
-                        const [dx1, dy1, dx2, dy2] = defect.bbox;
-                        const boxW = Math.max(0, dx2 - dx1);
-                        const boxH = Math.max(0, dy2 - dy1);
+                        const [rdx1, rdy1, rdx2, rdy2] = defect.bbox;
+                        const dx1 = rdx1 * scaleX;
+                        const dy1 = rdy1 * scaleY;
+                        const boxW = Math.max(0, (rdx2 - rdx1) * scaleX);
+                        const boxH = Math.max(0, (rdy2 - rdy1) * scaleY);
                         ctx.save();
                         // No bg color/fill inside defect bounding box
                         ctx.strokeStyle = '#ef4444';
@@ -276,7 +285,9 @@ export async function downloadAnnotatedFrame(
             for (const [zoneKey, zoneData] of zones) {
                 const theme = getZoneTheme(zoneKey);
                 if (zoneData.bbox) {
-                    const [x1, y1] = zoneData.bbox;
+                    const [rx1, ry1] = zoneData.bbox;
+                    const x1 = rx1 * scaleX;
+                    const y1 = ry1 * scaleY;
                     const confPercent = (zoneData.confidence * 100).toFixed(1);
                     const labelText = `${theme.name} ${confPercent}%`;
 
@@ -312,7 +323,9 @@ export async function downloadAnnotatedFrame(
             if (hasDefects) {
                 for (const defect of defectItems) {
                     if (defect.bbox) {
-                        const [dx1, dy1] = defect.bbox;
+                        const [rdx1, rdy1] = defect.bbox;
+                        const dx1 = rdx1 * scaleX;
+                        const dy1 = rdy1 * scaleY;
                         // No confidence score for defect
                         const labelText = '⚠️ DEFECT';
 

@@ -9,6 +9,7 @@ interface FrameDetectionOverlayProps {
     showPolygons: boolean;
     showBboxes: boolean;
     showLabels: boolean;
+    preserveAspectRatio?: string;
 }
 
 export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
@@ -16,6 +17,7 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
     showPolygons,
     showBboxes,
     showLabels,
+    preserveAspectRatio = 'none',
 }) => {
     if (!detection.image_size) return null;
     const hasZones = detection.zones && Object.keys(detection.zones).length > 0;
@@ -38,6 +40,7 @@ export const FrameDetectionOverlay: React.FC<FrameDetectionOverlayProps> = ({
     return (
         <svg
             viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio={preserveAspectRatio}
             style={{
                 position: 'absolute',
                 top: 0,

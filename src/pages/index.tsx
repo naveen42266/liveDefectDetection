@@ -84,8 +84,8 @@ async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
         {
             video: {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1080 },
-                height: { ideal: 1920 },
+                width: { ideal: 720 },
+                height: { ideal: 1280 },
                 aspectRatio: { ideal: 9 / 16 },
                 frameRate: { ideal: 30, min: 15 },
             },
@@ -94,19 +94,19 @@ async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
         {
             video: {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 720 },
-                height: { ideal: 1280 },
+                width: { exact: 720 },
+                height: { exact: 1280 },
                 aspectRatio: { ideal: 9 / 16 },
-                frameRate: { ideal: 30 },
             },
             audio: false,
         },
         {
             video: {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                aspectRatio: { ideal: 16 / 9 },
+                width: { ideal: 1080 },
+                height: { ideal: 1920 },
+                aspectRatio: { ideal: 9 / 16 },
+                frameRate: { ideal: 30, min: 15 },
             },
             audio: false,
         },
@@ -146,28 +146,16 @@ async function acquireAdaptiveCameraStreamAndroid(): Promise<MediaStream> {
                 : {}) as ExtendedMediaTrackCapabilities;
             const currentSettings = track.getSettings();
 
-            if (capabilities.height && capabilities.width) {
-                const maxHeight = typeof capabilities.height === 'object' && 'max' in capabilities.height ? capabilities.height.max : undefined;
-                const maxWidth = typeof capabilities.width === 'object' && 'max' in capabilities.width ? capabilities.width.max : undefined;
-
-                const currentDim = Math.max(currentSettings.width || 0, currentSettings.height || 0);
-                const maxSupportedDim = Math.max(maxWidth || 0, maxHeight || 0);
-
-                if (maxSupportedDim > currentDim && maxSupportedDim >= 1280) {
-                    const targetLong = Math.min(maxSupportedDim, 1920);
-                    const targetShort = Math.round(targetLong * (9 / 16));
-                    const isPortraitTrack = (currentSettings.height || 0) >= (currentSettings.width || 0);
-
-                    try {
-                        await track.applyConstraints({
-                            width: { ideal: isPortraitTrack ? targetShort : targetLong },
-                            height: { ideal: isPortraitTrack ? targetLong : targetShort },
-                            aspectRatio: { ideal: isPortraitTrack ? 9 / 16 : 16 / 9 },
-                        });
-                    } catch (refineErr) {
-                        console.warn('applyConstraints resolution refinement skipped:', refineErr);
-                    }
-                }
+            // Align track directly to 720x1280 (9:16) resolution to match AI detection model
+            const isPortraitTrack = (currentSettings.height || 0) >= (currentSettings.width || 0);
+            try {
+                await track.applyConstraints({
+                    width: { ideal: isPortraitTrack ? 720 : 1280 },
+                    height: { ideal: isPortraitTrack ? 1280 : 720 },
+                    aspectRatio: { ideal: isPortraitTrack ? 9 / 16 : 16 / 9 },
+                });
+            } catch (refineErr) {
+                console.warn('applyConstraints resolution refinement skipped:', refineErr);
             }
 
             const advancedConstraints: ExtendedMediaTrackConstraintSet = {};
@@ -231,6 +219,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
     const [isFlashOn, setIsFlashOn] = useState(false);
     const [cameraMetrics, setCameraMetrics] = useState<CameraMetrics>({});
     const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+    const [viewMode, setViewMode] = useState<'fit' | 'cover'>('fit');
 
     const captureTimerRef = useRef<number | null>(null);
     const framesCollectorRef = useRef<CapturedFrame[]>([]);
@@ -352,23 +341,46 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
         };
     }, [extractCameraDiagnostics]);
 
-    // Helper: sample frame from video element
+    // Helper: sample frame from video element at standardized 720x1280 resolution
     const grabFrame = (video: HTMLVideoElement): { dataUrl: string; width: number; height: number } => {
-        const width = video.videoWidth || 1080;
-        const height = video.videoHeight || 1920;
+        const TARGET_WIDTH = 720;
+        const TARGET_HEIGHT = 1280;
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = TARGET_WIDTH;
+        canvas.height = TARGET_HEIGHT;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
-            ctx.drawImage(video, 0, 0, width, height);
+            const vw = video.videoWidth || TARGET_WIDTH;
+            const vh = video.videoHeight || TARGET_HEIGHT;
+            const targetAspect = TARGET_WIDTH / TARGET_HEIGHT; // 0.5625 (9:16)
+            const videoAspect = vw / vh;
+
+            let sx = 0;
+            let sy = 0;
+            let sw = vw;
+            let sh = vh;
+
+            // Maintain exact 9:16 aspect ratio with symmetric center crop if sensor deviates
+            if (Math.abs(videoAspect - targetAspect) > 0.01) {
+                if (videoAspect > targetAspect) {
+                    // Sensor is wider than 9:16: crop left and right symmetrically
+                    sw = Math.round(vh * targetAspect);
+                    sx = Math.round((vw - sw) / 2);
+                } else {
+                    // Sensor is taller than 9:16: crop top and bottom symmetrically
+                    sh = Math.round(vw / targetAspect);
+                    sy = Math.round((vh - sh) / 2);
+                }
+            }
+
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
             return {
-                dataUrl: canvas.toDataURL('image/jpeg', 0.82),
-                width,
-                height,
+                dataUrl: canvas.toDataURL('image/jpeg', 0.85),
+                width: TARGET_WIDTH,
+                height: TARGET_HEIGHT,
             };
         }
-        return { dataUrl: '', width, height };
+        return { dataUrl: '', width: TARGET_WIDTH, height: TARGET_HEIGHT };
     };
 
     // ─── AUTO-START CAPTURE WITH REAL-TIME API DETECTION FOR EACH FRAME ───
@@ -533,7 +545,11 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
             {/* ══ PORTRAIT VIEWFINDER (CLEAN VIDEO FEED WITH LIVE AI OVERLAY) ══ */}
             <div ref={containerRef} style={{
                 position: 'relative', width: '100%', flex: 1,
-                overflow: 'hidden', background: '#f1f5f9',
+                overflow: 'hidden',
+                background: viewMode === 'fit' ? '#090d16' : '#f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
             }}>
                 {/* Floating Live Status Pill */}
                 {isCameraReady && (
@@ -552,6 +568,38 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                             2 FPS • {liveFrameCount} FRAMES
                         </span>
                     </div>
+                )}
+
+                {/* View Mode Toggle: Fit 9:16 (Exact Inspection Frame) vs Full Screen */}
+                {isCameraReady && (
+                    <button
+                        onClick={() => setViewMode(v => v === 'fit' ? 'cover' : 'fit')}
+                        type="button"
+                        title={viewMode === 'fit' ? 'Switch to Full Screen (Cover)' : 'Switch to Exact 9:16 Frame (Matches Inspection)'}
+                        style={{
+                            position: 'absolute',
+                            top: 14,
+                            right: flashSupported ? 124 : 14,
+                            zIndex: 25,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: viewMode === 'fit' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(255, 255, 255, 0.92)',
+                            backdropFilter: 'blur(8px)',
+                            padding: '6px 12px',
+                            borderRadius: 20,
+                            border: viewMode === 'fit' ? '1px solid #10b981' : '1px solid #cbd5e1',
+                            color: viewMode === 'fit' ? '#ffffff' : '#0f172a',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        <span style={{ fontSize: 11 }}>{viewMode === 'fit' ? '⊡' : '⛶'}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', fontFamily: 'monospace' }}>
+                            {viewMode === 'fit' ? 'FIT 9:16' : 'FULL SCREEN'}
+                        </span>
+                    </button>
                 )}
 
                 {flashSupported && isCameraReady && (
@@ -581,17 +629,32 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                     </button>
                 )}
 
-                <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+                <div style={{
+                    position: viewMode === 'fit' ? 'relative' : 'absolute',
+                    inset: viewMode === 'fit' ? undefined : 0,
+                    width: '100%',
+                    height: '100%',
+                    aspectRatio: viewMode === 'fit' ? '9 / 16' : undefined,
+                    maxWidth: viewMode === 'fit' ? '100%' : undefined,
+                    maxHeight: viewMode === 'fit' ? '100%' : undefined,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: viewMode === 'fit' ? 12 : 0,
+                    boxShadow: viewMode === 'fit' ? '0 10px 35px rgba(0,0,0,0.6)' : 'none',
+                    border: viewMode === 'fit' ? '1.5px solid rgba(255,255,255,0.15)' : 'none',
+                }}>
                     <video
                         ref={videoRef}
                         autoPlay
                         playsInline
                         muted
                         style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
+                            position: viewMode === 'fit' ? 'relative' : 'absolute',
+                            top: viewMode === 'fit' ? undefined : '50%',
+                            left: viewMode === 'fit' ? undefined : '50%',
+                            transform: viewMode === 'fit' ? undefined : 'translate(-50%, -50%)',
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
@@ -606,6 +669,7 @@ const CameraCaptureAndroid: React.FC<CameraCaptureProps> = ({
                                 showPolygons={true}
                                 showBboxes={true}
                                 showLabels={true}
+                                preserveAspectRatio={viewMode === 'fit' ? 'none' : 'xMidYMid slice'}
                             />
                         </div>
                     )}
@@ -1393,6 +1457,7 @@ const Home: React.FC = () => {
                                                     showPolygons={showPolygons}
                                                     showBboxes={showBboxes}
                                                     showLabels={showLabels}
+                                                    preserveAspectRatio="none"
                                                 />
                                             )}
                                         </div>
@@ -1527,6 +1592,7 @@ const Home: React.FC = () => {
                                                 showPolygons={showPolygons}
                                                 showBboxes={showBboxes}
                                                 showLabels={showLabels}
+                                                preserveAspectRatio="none"
                                             />
                                         )}
                                     </div>
@@ -2303,9 +2369,9 @@ const Home: React.FC = () => {
 
         .modal-full-img {
             max-width: 100%;
-            height: 100%;
+            width: auto;
+            height: auto;
             max-height: 230px;
-            object-fit: contain;
             border-radius: 8px;
             display: block;
             margin: 0 auto;
@@ -2456,9 +2522,7 @@ const Home: React.FC = () => {
 
         .full-image-wrapper {
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-block;
             max-width: 100%;
             max-height: 100%;
             line-height: 0;
@@ -2469,7 +2533,6 @@ const Home: React.FC = () => {
             max-height: calc(92dvh - 120px);
             width: auto;
             height: auto;
-            object-fit: contain;
             border-radius: 8px;
             display: block;
             margin: 0 auto;
